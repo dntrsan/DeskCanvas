@@ -1,0 +1,94 @@
+<Window x:Class="DeskCanvas.App.Windows.MediaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        ResizeMode="NoResize"
+        Focusable="False"
+        Title="DeskCanvas.Media">
+    <Grid x:Name="Root">
+        <Grid x:Name="RotatedVisual"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              MouseEnter="Visual_MouseEnter"
+              MouseLeave="Visual_MouseLeave">
+            <Border x:Name="ChromeBorder"
+                    BorderBrush="#CC8C7CFF"
+                    BorderThickness="2"
+                    CornerRadius="4"
+                    Background="#01000000">
+                <Image x:Name="MediaImage"
+                       Stretch="Fill"
+                       SnapsToDevicePixels="True"
+                       MouseLeftButtonDown="Move_MouseLeftButtonDown"/>
+            </Border>
+
+            <Border x:Name="Toolbar"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,7,7,0"
+                    Padding="4"
+                    CornerRadius="8"
+                    Background="#E51A1B24">
+                <StackPanel Orientation="Horizontal">
+                    <Button Click="Flip_Click"
+                            ToolTip="左右反転"
+                            Content="↔"
+                            FontSize="15"
+                            Padding="7,3"
+                            Margin="1"/>
+                    <Button Click="Lock_Click"
+                            ToolTip="この素材をロック"
+                            Content="🔒"
+                            FontSize="13"
+                            Padding="7,3"
+                            Margin="1"/>
+                    <Button Click="Delete_Click"
+                            ToolTip="削除"
+                            Content="×"
+                            FontSize="16"
+                            Padding="7,2"
+                            Margin="1"
+                            Foreground="#FFFF8D9A"/>
+                </StackPanel>
+            </Border>
+
+            <Ellipse x:Name="RotationHandle"
+                     Width="18"
+                     Height="18"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     Margin="0,-31,0,0"
+                     Fill="#FF8C7CFF"
+                     Stroke="White"
+                     StrokeThickness="2"
+                     Cursor="Hand"
+                     MouseLeftButtonDown="Rotate_MouseLeftButtonDown"/>
+            <Line x:Name="RotationStem"
+                  X1="0"
+                  Y1="-13"
+                  X2="0"
+                  Y2="0"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Top"
+                  Stroke="#FF8C7CFF"
+                  StrokeThickness="2"/>
+
+            <Border x:Name="ResizeHandle"
+                    Width="22"
+                    Height="22"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,-10,-10"
+                    CornerRadius="5"
+                    Background="#FF8C7CFF"
+                    BorderBrush="White"
+                    BorderThickness="2"
+                    Cursor="SizeNWSE"
+                    MouseLeftButtonDown="Resize_MouseLeftButtonDown"/>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DeskCanvas.Core/DeskCanvas.Core.csproj" />
+    <Project Path="src/DeskCanvas.App/DeskCanvas.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DeskCanvas.Tests/DeskCanvas.Tests.csproj" />
+  </Folder>
+</Solution>

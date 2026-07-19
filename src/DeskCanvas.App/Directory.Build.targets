@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup>
+    <Compile Remove="App.xaml.cs" />
+    <Compile Remove="Windows\MainWindow.xaml.cs" />
+    <Compile Remove="Windows\MediaWindow.xaml.cs" />
+  </ItemGroup>
+</Project>
