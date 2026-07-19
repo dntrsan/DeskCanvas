@@ -23,6 +23,7 @@
                 <Image x:Name="MediaImage"
                        Stretch="Fill"
                        SnapsToDevicePixels="True"
+                       RenderOptions.BitmapScalingMode="HighQuality"
                        MouseLeftButtonDown="Move_MouseLeftButtonDown"/>
             </Border>
 

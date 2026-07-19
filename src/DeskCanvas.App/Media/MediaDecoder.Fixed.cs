@@ -9,7 +9,8 @@ internal static class MediaDecoder
 {
     private const long MaximumSourcePixels = 120_000_000;
     private const long MaximumDecodedBytes = 512L * 1024 * 1024;
-    private const int MaximumDimension = 4096;
+    private const int MaximumStaticDimension = 8192;
+    private const int MaximumAnimatedDimension = 4096;
 
     internal static DecodedMedia Decode(string path)
     {
@@ -25,10 +26,15 @@ internal static class MediaDecoder
             throw new InvalidDataException("画像が大きすぎます。最大1億2千万画素まで対応しています。");
         }
 
-        var scale = Math.Min(1d, (double)MaximumDimension / Math.Max(sourceInfo.Width, sourceInfo.Height));
+        var frameCount = Math.Max(1, codec.FrameCount);
+        var maximumDimension = frameCount == 1
+            ? MaximumStaticDimension
+            : MaximumAnimatedDimension;
+        var scale = Math.Min(
+            1d,
+            (double)maximumDimension / Math.Max(sourceInfo.Width, sourceInfo.Height));
         var width = Math.Max(1, (int)Math.Round(sourceInfo.Width * scale));
         var height = Math.Max(1, (int)Math.Round(sourceInfo.Height * scale));
-        var frameCount = Math.Max(1, codec.FrameCount);
         if ((long)width * height * 4 * frameCount > MaximumDecodedBytes)
         {
             throw new InvalidDataException("GIFの展開後サイズが大きすぎます。");
