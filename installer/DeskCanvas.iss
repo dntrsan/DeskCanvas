@@ -1,5 +1,5 @@
 #define AppName "DeskCanvas"
-#define AppVersion "1.0.0"
+#define AppVersion "1.0.1"
 #define AppExeName "DeskCanvas.exe"
 
 [Setup]
