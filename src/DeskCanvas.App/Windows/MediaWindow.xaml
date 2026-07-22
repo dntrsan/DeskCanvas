@@ -8,13 +8,13 @@
         ShowActivated="False"
         ResizeMode="NoResize"
         Focusable="False"
+        MouseEnter="Visual_MouseEnter"
+        MouseLeave="Visual_MouseLeave"
         Title="DeskCanvas.Media">
     <Grid x:Name="Root">
         <Grid x:Name="RotatedVisual"
               HorizontalAlignment="Center"
-              VerticalAlignment="Center"
-              MouseEnter="Visual_MouseEnter"
-              MouseLeave="Visual_MouseLeave">
+              VerticalAlignment="Center">
             <Border x:Name="ChromeBorder"
                     BorderBrush="#CC8C7CFF"
                     BorderThickness="2"

@@ -8,6 +8,7 @@ namespace DeskCanvas.App.Windows;
 public partial class MainWindow : Window
 {
     private readonly DeskCanvasController controller;
+    private CanvasItem? observedItem;
     private bool updatingEditor = true;
 
     internal MainWindow(DeskCanvasController controller)
@@ -62,7 +63,29 @@ public partial class MainWindow : Window
 
     private void SetStatus(string message) => StatusText.Text = message;
 
-    private void ItemsList_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshEditor();
+    private void ItemsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (observedItem is not null)
+        {
+            observedItem.PropertyChanged -= ObservedItem_PropertyChanged;
+        }
+
+        observedItem = SelectedItem;
+        if (observedItem is not null)
+        {
+            observedItem.PropertyChanged += ObservedItem_PropertyChanged;
+        }
+
+        RefreshEditor();
+    }
+
+    private void ObservedItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (ReferenceEquals(sender, SelectedItem))
+        {
+            Dispatcher.InvokeAsync(RefreshEditor);
+        }
+    }
 
     private CanvasItem? SelectedItem => ItemsList.SelectedItem as CanvasItem;
 

@@ -17,6 +17,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 OutputDir=..\artifacts\installer
 OutputBaseFilename=DeskCanvas-Setup-{#AppVersion}
+SetupIconFile=..\src\DeskCanvas.App\Assets\AppIcon.ico
 UninstallDisplayIcon={app}\{#AppExeName}
 Compression=lzma2/max
 SolidCompression=yes

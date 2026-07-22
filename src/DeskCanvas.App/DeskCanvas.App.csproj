@@ -8,6 +8,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <AssemblyName>DeskCanvas</AssemblyName>
     <RootNamespace>DeskCanvas.App</RootNamespace>
     <Version>1.0.1</Version>

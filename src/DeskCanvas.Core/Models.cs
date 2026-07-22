@@ -147,6 +147,8 @@ public readonly record struct DisplayArea(
 
 public static class Geometry
 {
+    private const double MinimumVisibleLength = 64;
+
     public static double NormalizeDegrees(double value)
     {
         var result = value % 360;
@@ -170,7 +172,16 @@ public static class Geometry
         }
 
         var display = displays.FirstOrDefault(candidate =>
-            string.Equals(candidate.DeviceName, item.MonitorDevice, StringComparison.OrdinalIgnoreCase));
+            item.CenterX >= candidate.Left &&
+            item.CenterX <= candidate.Right &&
+            item.CenterY >= candidate.Top &&
+            item.CenterY <= candidate.Bottom);
+        if (string.IsNullOrWhiteSpace(display.DeviceName))
+        {
+            display = displays.FirstOrDefault(candidate =>
+                string.Equals(candidate.DeviceName, item.MonitorDevice, StringComparison.OrdinalIgnoreCase));
+        }
+
         if (string.IsNullOrWhiteSpace(display.DeviceName))
         {
             display = displays.FirstOrDefault(candidate => candidate.IsPrimary);
@@ -181,10 +192,22 @@ public static class Geometry
             display = displays[0];
         }
 
-        var halfWidth = Math.Min(item.Width / 2, display.Width / 2);
-        var halfHeight = Math.Min(item.Height / 2, display.Height / 2);
-        item.CenterX = Math.Clamp(item.CenterX, display.Left + halfWidth, display.Right - halfWidth);
-        item.CenterY = Math.Clamp(item.CenterY, display.Top + halfHeight, display.Bottom - halfHeight);
+        var radians = item.RotationDegrees * Math.PI / 180;
+        var cosine = Math.Abs(Math.Cos(radians));
+        var sine = Math.Abs(Math.Sin(radians));
+        var boundsWidth = item.Width * cosine + item.Height * sine;
+        var boundsHeight = item.Width * sine + item.Height * cosine;
+        var visibleWidth = Math.Min(MinimumVisibleLength, boundsWidth);
+        var visibleHeight = Math.Min(MinimumVisibleLength, boundsHeight);
+
+        item.CenterX = Math.Clamp(
+            item.CenterX,
+            display.Left - boundsWidth / 2 + visibleWidth,
+            display.Right + boundsWidth / 2 - visibleWidth);
+        item.CenterY = Math.Clamp(
+            item.CenterY,
+            display.Top - boundsHeight / 2 + visibleHeight,
+            display.Bottom + boundsHeight / 2 - visibleHeight);
         item.MonitorDevice = display.DeviceName;
     }
 }

@@ -3,7 +3,9 @@ using DeskCanvas.Core;
 var tests = new (string Name, Action Run)[]
 {
     ("角度を-180..180へ正規化する", TestAngles),
-    ("配置を利用可能なモニターへ戻す", TestClamp),
+    ("配置を回収可能な位置へ戻す", TestClamp),
+    ("一部を画面外へ配置できる", TestPartialOffscreen),
+    ("中心が移動したモニターへ所属を切り替える", TestMonitorSelection),
     ("設定を保存して再読込できる", TestRoundTrip),
     ("壊れた設定からバックアップへ戻る", TestRecovery)
 };
@@ -44,8 +46,42 @@ static void TestClamp()
     };
     Geometry.ClampToDisplays(item, [new DisplayArea("primary", 0, 0, 1920, 1040, true)]);
     Equal("primary", item.MonitorDevice);
-    Equal(1720d, item.CenterX);
-    Equal(100d, item.CenterY);
+    Equal(2056d, item.CenterX);
+    Equal(-36d, item.CenterY);
+}
+
+static void TestPartialOffscreen()
+{
+    var item = new CanvasItem
+    {
+        MonitorDevice = "primary",
+        CenterX = -120,
+        CenterY = 500,
+        Width = 400,
+        Height = 200
+    };
+    Geometry.ClampToDisplays(item, [new DisplayArea("primary", 0, 0, 1920, 1040, true)]);
+    Equal(-120d, item.CenterX);
+    Equal(500d, item.CenterY);
+}
+
+static void TestMonitorSelection()
+{
+    var item = new CanvasItem
+    {
+        MonitorDevice = "primary",
+        CenterX = 2500,
+        CenterY = 500,
+        Width = 400,
+        Height = 200
+    };
+    Geometry.ClampToDisplays(item,
+    [
+        new DisplayArea("primary", 0, 0, 1920, 1040, true),
+        new DisplayArea("secondary", 1920, 0, 1920, 1040, false)
+    ]);
+    Equal("secondary", item.MonitorDevice);
+    Equal(2500d, item.CenterX);
 }
 
 static void TestRoundTrip()

@@ -7,6 +7,7 @@ internal sealed class TrayService : IDisposable
 {
     private readonly NotifyIcon icon;
     private readonly ToolStripMenuItem editItem;
+    private readonly Icon? ownedIcon;
 
     internal TrayService(Action open, Action add, Action toggleEdit, Action exit)
     {
@@ -18,10 +19,11 @@ internal sealed class TrayService : IDisposable
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("終了", null, (_, _) => exit());
 
+        ownedIcon = LoadApplicationIcon();
         icon = new NotifyIcon
         {
             Text = "DeskCanvas",
-            Icon = SystemIcons.Application,
+            Icon = ownedIcon ?? SystemIcons.Application,
             ContextMenuStrip = menu,
             Visible = true
         };
@@ -44,5 +46,19 @@ internal sealed class TrayService : IDisposable
         icon.Visible = false;
         icon.ContextMenuStrip?.Dispose();
         icon.Dispose();
+        ownedIcon?.Dispose();
+    }
+
+    private static Icon? LoadApplicationIcon()
+    {
+        try
+        {
+            var path = Environment.ProcessPath;
+            return string.IsNullOrWhiteSpace(path) ? null : Icon.ExtractAssociatedIcon(path);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
     }
 }
