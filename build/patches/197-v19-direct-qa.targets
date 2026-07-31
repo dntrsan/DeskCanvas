@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.VisualQa' and '$(DESKCANVAS_V19_QA)' == '1'">
+    <StartupObject>V19QaEntry</StartupObject>
+  </PropertyGroup>
+</Project>

@@ -10,23 +10,24 @@
         Focusable="False"
         MouseEnter="Visual_MouseEnter"
         MouseLeave="Visual_MouseLeave"
-        Title="DeskCanvas.Media">
+        Title="DeskCanvas.Item">
     <Grid x:Name="Root">
         <Grid x:Name="RotatedVisual"
               HorizontalAlignment="Center"
-              VerticalAlignment="Center">
+              VerticalAlignment="Center"
+              MouseLeftButtonDown="Move_MouseLeftButtonDown">
+            <Grid x:Name="DecoratedContent">
+                <ContentControl x:Name="ItemContent"/>
+                <Border x:Name="DecorationBorder"
+                        IsHitTestVisible="False"
+                        BorderBrush="White"
+                        BorderThickness="0"/>
+            </Grid>
             <Border x:Name="ChromeBorder"
+                    IsHitTestVisible="False"
                     BorderBrush="#CC8C7CFF"
-                    BorderThickness="2"
-                    CornerRadius="4"
-                    Background="#01000000">
-                <Image x:Name="MediaImage"
-                       Stretch="Fill"
-                       SnapsToDevicePixels="True"
-                       RenderOptions.BitmapScalingMode="HighQuality"
-                       MouseLeftButtonDown="Move_MouseLeftButtonDown"/>
-            </Border>
-
+                    BorderThickness="0"
+                    CornerRadius="4"/>
             <Border x:Name="Toolbar"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
@@ -35,28 +36,12 @@
                     CornerRadius="8"
                     Background="#E51A1B24">
                 <StackPanel Orientation="Horizontal">
-                    <Button Click="Flip_Click"
-                            ToolTip="左右反転"
-                            Content="↔"
-                            FontSize="15"
-                            Padding="7,3"
-                            Margin="1"/>
-                    <Button Click="Lock_Click"
-                            ToolTip="この素材をロック"
-                            Content="🔒"
-                            FontSize="13"
-                            Padding="7,3"
-                            Margin="1"/>
-                    <Button Click="Delete_Click"
-                            ToolTip="削除"
-                            Content="×"
-                            FontSize="16"
-                            Padding="7,2"
-                            Margin="1"
-                            Foreground="#FFFF8D9A"/>
+                    <Button x:Name="FlipButton" Click="Flip_Click" ToolTip="左右反転" Content="↔" FontSize="15" Padding="7,3" Margin="1"/>
+                    <Button Click="Hide_Click" ToolTip="この項目を一時的に隠す" Content="◌" FontSize="15" Padding="7,3" Margin="1"/>
+                    <Button Click="Lock_Click" ToolTip="この項目をロック" Content="🔒" FontSize="13" Padding="7,3" Margin="1"/>
+                    <Button Click="Delete_Click" ToolTip="削除" Content="×" FontSize="16" Padding="7,2" Margin="1" Foreground="#FFFF8D9A"/>
                 </StackPanel>
             </Border>
-
             <Ellipse x:Name="RotationHandle"
                      Width="18"
                      Height="18"
@@ -75,9 +60,9 @@
                   Y2="0"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Top"
+                  IsHitTestVisible="False"
                   Stroke="#FF8C7CFF"
                   StrokeThickness="2"/>
-
             <Border x:Name="ResizeHandle"
                     Width="22"
                     Height="22"

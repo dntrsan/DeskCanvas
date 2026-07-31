@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.VisualQa'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\qa\DeskCanvas.VisualQa\V19ProgressReplacementQaEntry.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\qa\DeskCanvas.VisualQa\V19ProgressReplacementQaEntry.Fixed.cs" Link="V19ProgressReplacementQaEntry.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,21 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using DeskCanvas.App;
+
+internal static class V22BetaVersionContractTests
+{
+    [ModuleInitializer]
+    internal static void Run()
+    {
+        var assembly = typeof(ApplicationVersion).Assembly;
+        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        var file = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
+        if (ApplicationVersion.SemVer != "1.2.0-beta.1" ||
+            ApplicationVersion.Display != "v1.2.0-beta.1  BETA" ||
+            ApplicationVersion.WindowTitle != "DeskCanvas v1.2.0-beta.1 Beta" ||
+            informational != ApplicationVersion.SemVer ||
+            file != "1.2.0.1")
+            throw new InvalidOperationException("beta version metadata and management-window label diverged");
+        Console.WriteLine("PASS v1.2.0-beta.1 assembly and management-window version label");
+    }
+}

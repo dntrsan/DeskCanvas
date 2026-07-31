@@ -1,0 +1,11 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\App\Windows\SystemMonitor.V20Adaptive.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\App\Windows\SystemMonitor.V20Adaptive2.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\App\Windows\SystemMonitor.V20Adaptive.Accepted3.cs" Link="Windows\SystemMonitor.V19.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\Tests\V20AdaptiveSystemContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\Tests\V20AdaptiveSystemContractTests.Accepted3.cs" Link="V20AdaptiveSystemContractTests.cs" />
+  </ItemGroup>
+</Project>

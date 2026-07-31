@@ -11,11 +11,20 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        singleInstanceMutex = new Mutex(initiallyOwned: true, @"Local\DeskCanvas.SingleInstance", out var ownsMutex);
+        var preview = string.Equals(
+            Environment.GetEnvironmentVariable("DESKCANVAS_PREVIEW_MODE"),
+            "1",
+            StringComparison.Ordinal);
+        var mutexName = preview
+            ? $@"Local\DeskCanvas.Preview.{PreviewIdentity()}"
+            : @"Local\DeskCanvas.SingleInstance";
+        singleInstanceMutex = new Mutex(initiallyOwned: true, mutexName, out var ownsMutex);
         if (!ownsMutex)
         {
             System.Windows.MessageBox.Show(
-                "DeskCanvasはすでに起動しています。通知領域のアイコンから開いてください。",
+                preview
+                    ? "この隔離プレビューはすでに起動しています。"
+                    : "DeskCanvasはすでに起動しています。通知領域のアイコンから開いてください。",
                 "DeskCanvas",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -55,5 +64,20 @@ public partial class App : System.Windows.Application
             singleInstanceMutex.Dispose();
         }
         base.OnExit(e);
+    }
+
+    private static string PreviewIdentity()
+    {
+        var dataRoot = Environment.GetEnvironmentVariable("DESKCANVAS_DATA_ROOT") ?? "default";
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (var character in dataRoot.ToUpperInvariant())
+            {
+                hash ^= character;
+                hash *= 16777619;
+            }
+            return hash.ToString("X8");
+        }
     }
 }

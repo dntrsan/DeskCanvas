@@ -1,0 +1,6 @@
+using System.Runtime.CompilerServices;
+using DeskCanvas.App.Services;
+internal static class V20TimelineStabilityTests
+{
+ [ModuleInitializer]internal static void Run(){var end=TimeSpan.FromSeconds(60);var projected=TimeSpan.FromSeconds(14);if(!NowPlayingTimelineMath.ShouldKeepProjected(NowPlayingRefreshCause.Reconciliation,NowPlayingState.Playing,projected,TimeSpan.Zero,end))throw new InvalidOperationException("reconciliation must ignore a stale zero");if(NowPlayingTimelineMath.ShouldKeepProjected(NowPlayingRefreshCause.Timeline,NowPlayingState.Playing,projected,TimeSpan.Zero,end))throw new InvalidOperationException("timeline event must accept an explicit seek");if(!NowPlayingTimelineMath.IsLoopRewind(TimeSpan.FromSeconds(59),TimeSpan.FromSeconds(1),end))throw new InvalidOperationException("loop rewind was not detected");var paused=new NowPlayingSnapshot(true,"a","t","","",null,NowPlayingState.Paused,TimeSpan.FromSeconds(5),end,false,false,false,false,DateTimeOffset.UtcNow);if(NowPlayingService.Project(paused,paused.ObservedAt.AddSeconds(9)).Position!=paused.Position)throw new InvalidOperationException("pause projected time");Console.WriteLine("PASS v2.0 GSMTC reconciliation timeline stability");}
+}

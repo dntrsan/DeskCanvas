@@ -1,0 +1,176 @@
+using System.Runtime.InteropServices;
+
+namespace DeskCanvas.App.Services;
+
+internal interface IAudioSpectrumReader : IDisposable
+{
+    IReadOnlyList<double> ReadBands();
+}
+
+internal static class SpectrumMath
+{
+    internal const int BandCount = 7;
+    internal static void Fft(Span<double> real, Span<double> imaginary)
+    {
+        for (int i = 1, j = 0; i < real.Length; i++)
+        {
+            var bit = real.Length >> 1;
+            for (; (j & bit) != 0; bit >>= 1) j ^= bit;
+            j ^= bit;
+            if (i < j) { (real[i], real[j]) = (real[j], real[i]); (imaginary[i], imaginary[j]) = (imaginary[j], imaginary[i]); }
+        }
+        for (var length = 2; length <= real.Length; length <<= 1)
+        {
+            var angle = -2 * Math.PI / length;
+            var stepR = Math.Cos(angle); var stepI = Math.Sin(angle);
+            for (var offset = 0; offset < real.Length; offset += length)
+            {
+                var wr = 1d; var wi = 0d;
+                for (var k = 0; k < length / 2; k++)
+                {
+                    var even = offset + k; var odd = even + length / 2;
+                    var tr = wr * real[odd] - wi * imaginary[odd]; var ti = wr * imaginary[odd] + wi * real[odd];
+                    real[odd] = real[even] - tr; imaginary[odd] = imaginary[even] - ti;
+                    real[even] += tr; imaginary[even] += ti;
+                    (wr, wi) = (wr * stepR - wi * stepI, wr * stepI + wi * stepR);
+                }
+            }
+        }
+    }
+    internal static double[] ToLogBands(ReadOnlySpan<double> real, ReadOnlySpan<double> imaginary, int sampleRate)
+    {
+        var values = new double[BandCount]; var half = real.Length / 2;
+        var min = 45d; var max = Math.Min(18000d, sampleRate / 2d);
+        for (var band = 0; band < BandCount; band++)
+        {
+            var low = min * Math.Pow(max / min, band / (double)BandCount);
+            var high = min * Math.Pow(max / min, (band + 1d) / BandCount);
+            var start = Math.Clamp((int)Math.Floor(low * real.Length / sampleRate), 1, half - 1);
+            var end = Math.Clamp((int)Math.Ceiling(high * real.Length / sampleRate), start + 1, half);
+            var energy = 0d;
+            for (var bin = start; bin < end; bin++) energy += real[bin] * real[bin] + imaginary[bin] * imaginary[bin];
+            var magnitude = Math.Sqrt(energy / Math.Max(1, end - start)) / real.Length;
+            var db = 20 * Math.Log10(Math.Max(magnitude, 1e-7));
+            values[band] = Math.Clamp((db + 72) / 72, 0, 1);
+        }
+        return values;
+    }
+    internal static double Smooth(double prior, double target) => target >= prior ? prior + (target - prior) * .62 : prior + (target - prior) * .16;
+}
+
+internal sealed class WasapiLoopbackSpectrumReader : IAudioSpectrumReader
+{
+    private readonly object gate = new();
+    private readonly CancellationTokenSource cancellation = new();
+    private readonly Thread worker;
+    private double[] bands = new double[SpectrumMath.BandCount];
+    private bool disposed;
+
+    internal WasapiLoopbackSpectrumReader()
+    {
+        worker = new Thread(Capture) { IsBackground = true, Name = "DeskCanvas WASAPI spectrum" };
+        worker.Start();
+    }
+    public IReadOnlyList<double> ReadBands() { lock (gate) return bands.ToArray(); }
+    private void Capture()
+    {
+        CoInitializeEx(IntPtr.Zero, 0);
+        try
+        {
+            while (!cancellation.IsCancellationRequested)
+            {
+                try { CaptureSession(); }
+                catch { Publish(new double[SpectrumMath.BandCount]); }
+                if (!cancellation.IsCancellationRequested) cancellation.Token.WaitHandle.WaitOne(500);
+            }
+        }
+        finally { CoUninitialize(); }
+    }
+    private void CaptureSession()
+    {
+        object? enumerator = null, device = null, client = null, capture = null;
+        IntPtr format = IntPtr.Zero;
+        try
+        {
+            enumerator = new MMDeviceEnumeratorComObject();
+            ThrowIfFailed(((IMMDeviceEnumerator)enumerator).GetDefaultAudioEndpoint(EDataFlow.eRender, ERole.eMultimedia, out var endpoint)); device = endpoint;
+            var clientId = typeof(IAudioClient).GUID; ThrowIfFailed(((IMMDevice)device).Activate(ref clientId, 23, IntPtr.Zero, out var audioClient)); client = audioClient;
+            ThrowIfFailed(((IAudioClient)client).GetMixFormat(out format));
+            var wave = Marshal.PtrToStructure<WaveFormatEx>(format);
+            ThrowIfFailed(((IAudioClient)client).Initialize(AudioClientShareMode.Shared, AudioClientStreamFlags.Loopback, 200000, 0, format, IntPtr.Zero));
+            var captureId = typeof(IAudioCaptureClient).GUID; ThrowIfFailed(((IAudioClient)client).GetService(ref captureId, out var captureClient)); capture = captureClient;
+            ThrowIfFailed(((IAudioClient)client).Start());
+            var samples = new List<double>(4096);
+            while (!cancellation.IsCancellationRequested)
+            {
+                ThrowIfFailed(((IAudioCaptureClient)capture).GetNextPacketSize(out var packet));
+                if (packet == 0) { cancellation.Token.WaitHandle.WaitOne(10); continue; }
+                ThrowIfFailed(((IAudioCaptureClient)capture).GetBuffer(out var data, out var frames, out var flags, out _, out _));
+                try
+                {
+                    if ((flags & 2) != 0) { for (var i=0;i<frames;i++) samples.Add(0); }
+                    else AppendSamples(data, frames, wave, samples);
+                }
+                finally { ((IAudioCaptureClient)capture).ReleaseBuffer(frames); }
+                while (samples.Count >= 2048)
+                {
+                    var block = samples.Take(2048).ToArray(); samples.RemoveRange(0, 1024);
+                    Publish(Analyze(block, wave.nSamplesPerSec));
+                }
+            }
+            ((IAudioClient)client).Stop();
+        }
+        finally
+        {
+            if (format != IntPtr.Zero) Marshal.FreeCoTaskMem(format);
+            Release(capture); Release(client); Release(device); Release(enumerator);
+        }
+    }
+    private static void AppendSamples(IntPtr data, uint frames, WaveFormatEx wave, List<double> output)
+    {
+        var channels = Math.Max(1, (int)wave.nChannels); var bytes = Math.Max(1, wave.nBlockAlign / channels);
+        for (var frame = 0; frame < frames; frame++)
+        {
+            var sum = 0d;
+            for (var channel = 0; channel < channels; channel++)
+            {
+                var pointer = data + (int)(frame * wave.nBlockAlign + channel * bytes);
+                sum += wave.wBitsPerSample == 32 ? Marshal.PtrToStructure<float>(pointer) : Marshal.ReadInt16(pointer) / 32768d;
+            }
+            output.Add(sum / channels);
+        }
+    }
+    private double[] Analyze(double[] input, int rate)
+    {
+        var real = new double[input.Length]; var imaginary = new double[input.Length];
+        for (var i=0;i<input.Length;i++) real[i] = input[i] * (.5 - .5 * Math.Cos(2 * Math.PI * i / (input.Length - 1)));
+        SpectrumMath.Fft(real, imaginary); return SpectrumMath.ToLogBands(real, imaginary, rate);
+    }
+    private void Publish(double[] next)
+    {
+        lock (gate) for (var i=0;i<bands.Length;i++) bands[i] = SpectrumMath.Smooth(bands[i], next[i]);
+    }
+    public void Dispose() { if (disposed) return; disposed=true; cancellation.Cancel(); worker.Join(750); cancellation.Dispose(); }
+    private static void ThrowIfFailed(int hr) { if (hr < 0) Marshal.ThrowExceptionForHR(hr); }
+    private static void Release(object? value) { if (value is not null && Marshal.IsComObject(value)) Marshal.ReleaseComObject(value); }
+    [StructLayout(LayoutKind.Sequential)] private struct WaveFormatEx { public ushort wFormatTag,nChannels; public int nSamplesPerSec,nAvgBytesPerSec; public ushort nBlockAlign,wBitsPerSample,cbSize; }
+    private enum EDataFlow { eRender,eCapture,eAll } private enum ERole { eConsole,eMultimedia,eCommunications } private enum AudioClientShareMode { Shared,Exclusive } [Flags] private enum AudioClientStreamFlags { Loopback=0x20000 }
+    [ComImport,Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] private class MMDeviceEnumeratorComObject { }
+    [ComImport,Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] private interface IMMDeviceEnumerator { int EnumAudioEndpoints(EDataFlow flow,int state,out IntPtr collection); int GetDefaultAudioEndpoint(EDataFlow flow,ERole role,out IMMDevice device); }
+    [ComImport,Guid("D666063F-1587-4E43-81F1-B948E807363F"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] private interface IMMDevice { int Activate(ref Guid iid,int cls,IntPtr parameters,[MarshalAs(UnmanagedType.IUnknown)]out object instance); }
+    [ComImport,Guid("1CB9AD4C-DBFA-4c32-B178-C2F568A703B2"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] private interface IAudioClient { int Initialize(AudioClientShareMode mode,AudioClientStreamFlags flags,long duration,long period,IntPtr format,IntPtr session); int GetBufferSize(out uint frames); int GetStreamLatency(out long latency); int GetCurrentPadding(out uint padding); int IsFormatSupported(AudioClientShareMode mode,IntPtr format,out IntPtr closest); int GetMixFormat(out IntPtr format); int GetDevicePeriod(out long defaultPeriod,out long minPeriod); int Start(); int Stop(); int Reset(); int SetEventHandle(IntPtr handle); int GetService(ref Guid iid,[MarshalAs(UnmanagedType.IUnknown)]out object service); }
+    [ComImport,Guid("C8ADBD64-E71E-48a0-A4DE-185C395CD317"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] private interface IAudioCaptureClient { int GetBuffer(out IntPtr data,out uint frames,out uint flags,out ulong devicePosition,out ulong qpcPosition); int ReleaseBuffer(uint frames); int GetNextPacketSize(out uint frames); }
+    [DllImport("ole32.dll")] private static extern int CoInitializeEx(IntPtr reserved,uint coInit); [DllImport("ole32.dll")] private static extern void CoUninitialize();
+}
+
+internal sealed class AudioSpectrumLeaseController : IDisposable
+{
+    private readonly Func<IAudioSpectrumReader> factory; private IAudioSpectrumReader? reader;
+    internal AudioSpectrumLeaseController(Func<IAudioSpectrumReader> factory) => this.factory=factory;
+    internal void Poll(bool playing,Action<IReadOnlyList<double>> sink)
+    {
+        if(!playing){Suspend();sink(new double[SpectrumMath.BandCount]);return;}
+        try { reader ??= factory(); sink(reader.ReadBands()); } catch { Suspend(); sink(new double[SpectrumMath.BandCount]); }
+    }
+    internal void Suspend(){reader?.Dispose();reader=null;} public void Dispose()=>Suspend();
+}

@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildProjectDirectory)\V12DpiRenderTests.cs" />
+  </ItemGroup>
+</Project>

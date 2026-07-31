@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Page Remove="$(MSBuildThisFileDirectory)..\overrides\v22\App\Windows\MainWindow.V22Beta.xaml" />
+    <Page Include="$(MSBuildThisFileDirectory)..\overrides\v14\App\Windows\MainWindow.xaml" Link="Windows\MainWindow.xaml" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v22\App\Windows\MainWindowVersionLabel.V22Beta.cs" Link="Windows\MainWindowVersionLabel.cs" />
+  </ItemGroup>
+</Project>

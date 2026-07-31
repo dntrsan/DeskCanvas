@@ -1,0 +1,1 @@
+<Project><ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'"><Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v18\Tests\V18VisualContractTests.Accepted.cs" /><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v18\Tests\V18VisualContractTests.HistoryAccepted.cs" Link="V18VisualContractTests.cs" /></ItemGroup></Project>

@@ -28,10 +28,12 @@
                 <TextBlock Text="DeskCanvas" FontSize="27" FontWeight="SemiBold"/>
                 <TextBlock Margin="0,4,0,0"
                            Foreground="{StaticResource MutedBrush}"
-                           Text="好きな画像とGIFを、デスクトップへ。"/>
+                           Text="画像・GIF・時計・再生中・システム情報を、デスクトップへ。"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Content="＋ 画像 / GIFを追加" Click="Add_Click"/>
+                <Button Content="＋ 標準コンテンツ" Click="BuiltIn_Click"/>
+                <Button x:Name="HideAllButton" Content="すべて隠す" Click="HideAll_Click"/>
                 <Button x:Name="EditModeButton"
                         MinWidth="170"
                         Click="EditMode_Click"
@@ -141,12 +143,19 @@
                                        VerticalAlignment="Center"/>
                         </Grid>
 
+                        <TextBlock Margin="0,20,0,7" Foreground="{StaticResource MutedBrush}" Text="装飾"/>
+                        <ComboBox x:Name="DecorationCombo" SelectionChanged="DecorationCombo_SelectionChanged">
+                            <ComboBoxItem Content="None"/>
+                            <ComboBoxItem Content="WhiteOutline"/>
+                            <ComboBoxItem Content="OuterFrame"/>
+                        </ComboBox>
                         <WrapPanel Margin="0,22,0,0">
                             <CheckBox x:Name="ItemLockCheck"
                                       Margin="3,8,18,8"
                                       VerticalAlignment="Center"
                                       Click="ItemLockCheck_Click"
                                       Content="個別ロック"/>
+                            <CheckBox x:Name="TemporaryHideCheck" Margin="3,8,18,8" VerticalAlignment="Center" Click="TemporaryHideCheck_Click" Content="一時的に隠す"/>
                             <CheckBox x:Name="FlipCheck"
                                       Margin="3,8,18,8"
                                       VerticalAlignment="Center"

@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildProjectDirectory)\V13UpdateAliases.cs" />
+  </ItemGroup>
+</Project>

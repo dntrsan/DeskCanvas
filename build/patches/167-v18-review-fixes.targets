@@ -1,0 +1,4 @@
+<Project>
+ <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'"><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v18\App\Services\ArtworkPaletteMath.Reviewed.cs" Link="Services\ArtworkPaletteMath.Reviewed.cs" /></ItemGroup>
+ <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'"><Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v18\Tests\V18VisualContractTests.cs" /><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v18\Tests\V18VisualContractTests.Reviewed.cs" Link="V18VisualContractTests.cs" /></ItemGroup>
+</Project>

@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\App\Services\AudioSpectrum.V20RelativeAccepted.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\App\Services\AudioSpectrum.V20RelativeAccepted2.cs" Link="Services\AudioSpectrum.cs" />
+  </ItemGroup>
+</Project>

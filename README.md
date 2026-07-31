@@ -1,47 +1,27 @@
-# DeskCanvas
+# DeskCanvas 1.1.0
 
-DeskCanvas は、PNG・JPEG・BMP・WebP・GIF を Windows デスクトップへ飾る
-個人利用向けアプリです。画像はデスクトップアイコンより前、通常アプリより後ろに
-表示されます。
+DeskCanvas は画像・GIF・時計・再生中・システムモニターを Windows デスクトップへ置く個人利用向けアプリです。項目はデスクトップアイコンより前、通常アプリより後ろに表示されます。
+
+「再生中」は Windows 10 1809 以降の Global System Media Transport Controls を読んで、現在のセッションの曲名、アーティスト、アルバムアート、再生状態、進捗を表示します。前へ・再生/一時停止・次へと、対応する場合はシークを使えます。再生アプリが無いときは「再生中のコンテンツはありません」と表示されます。再生情報はWindowsが公開するセッションに限られ、アプリによってはアート、進捗、操作の一部を公開しません。
+
+システムモニターは共有のバックグラウンドサンプラーで、CPU全体、物理メモリ、GPU、物理ネットワーク回線の下り/上りを毎秒表示します。GPUは `GPU Engine` のプロセス別カウンターをLUID・物理アダプター・エンジン番号・エンジン種別でまとめ、同じ物理エンジンへの寄与を合算してから100%に丸め、最も忙しいエンジンを表示します。ネットワークは稼働中のhardware interfaceだけを合算し、loopback・tunnel・virtual interfaceの二重計上を避けます。初回値と一時的な取得失敗は「取得中」、Windowsがカウンターを公開していない場合だけ `--` です。
 
 ## 操作
 
-- 管理画面の「画像 / GIFを追加」、または画面へのファイルドロップで素材を追加
+- 管理画面から画像 / GIF、または「標準コンテンツを追加」で時計・再生中・システムモニターを追加
+- 時計は Digital / Split / Analog、12/24時間、秒、年、月日を選べる
 - `Ctrl + Alt + L`: 全体編集モードを切り替え
-- 素材をドラッグ: 移動
-- 右下のハンドルをドラッグ: 縦横比を保って拡大・縮小
-- 上の丸いハンドルをドラッグ: 回転（Shift中は15度刻み）
-- ホバーUI: 左右反転、個別ロック、削除
-- 管理画面: 透明度、角度、重なり順、個別ロック、自動起動を設定
-- 素材は最低64pxを画面内に残しながら、画面外へ一部はみ出して配置可能
+- 編集中はドラッグで移動、右下で拡大縮小、上で回転（Shiftで15度刻み）
+- 通常時、再生中ウィジェットはメディア操作だけをクリックで受け、背景や文字のクリックはデスクトップへ通す
+- 一時非表示中はGIFを止め、ライブ項目の共有サービス購読も停止する
 
-起動時は必ず全体ロック状態です。全体ロック中と個別ロック中の素材は完全に
-クリック透過となり、ホバーUIも表示しません。GIFは元のフレーム間隔で自動ループします。
-
-## 保存
-
-追加した素材と配置設定は `%LOCALAPPDATA%\DeskCanvas` に保存されます。
-元ファイルを移動・削除しても表示は維持されます。素材をDeskCanvasから削除しても、
-元ファイルは削除されません。
+配置、装飾、ロック、重なり順、ウィジェット設定は `%LOCALAPPDATA%\DeskCanvas` の layout v2 に保存されます。一時非表示は起動中のみです。組み込み項目を削除しても画像ファイルは削除しません。
 
 ## 開発
 
-必要なもの:
-
-- Windows 10 / 11 x64
-- .NET 10 SDK
-- Inno Setup 7（インストーラー作成時）
+Windows 10 / 11 x64 と .NET 10 SDK が必要です。
 
 ```powershell
-dotnet build .\DeskCanvas.slnx -c Release --configfile .\NuGet.Config
-dotnet run --project .\tests\DeskCanvas.Tests\DeskCanvas.Tests.csproj -c Release --no-build
-
-dotnet publish .\src\DeskCanvas.App\DeskCanvas.App.csproj `
-  -c Release -r win-x64 --self-contained true `
-  -p:PublishReadyToRun=false -p:SatelliteResourceLanguages=ja `
-  -p:DebugSymbols=false -p:DebugType=None `
-  -o .\artifacts\publish\win-x64 `
-  --configfile .\NuGet.Config
+C:\tmp\dotnet10\dotnet.exe build .\DeskCanvas.slnx -c Release --configfile .\NuGet.Config
+C:\tmp\dotnet10\dotnet.exe run --project .\tests\DeskCanvas.Tests\DeskCanvas.Tests.csproj -c Release --no-build
 ```
-
-インストーラーは `ISCC.exe .\installer\DeskCanvas.iss` で作成します。

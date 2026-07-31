@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <DeskCanvasInstallerSource>$(MSBuildThisFileDirectory)..\..\installer\DeskCanvas.v20.UpgradeAccepted2.iss</DeskCanvasInstallerSource>
+  </PropertyGroup>
+  <Target Name="ValidateDeskCanvasInstallerSource" BeforeTargets="Build" Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Error Condition="!Exists('$(DeskCanvasInstallerSource)')" Text="Accepted DeskCanvas upgrade installer source is missing: $(DeskCanvasInstallerSource)" />
+  </Target>
+</Project>

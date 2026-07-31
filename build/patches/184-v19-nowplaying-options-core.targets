@@ -1,0 +1,10 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Core'">
+    <Compile Remove="$(MSBuildProjectDirectory)\Models.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v12\Core\Models.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v19\Core\Models.V19Options.Accepted.cs" Link="Models.cs" />
+    <Compile Remove="$(MSBuildProjectDirectory)\LayoutRepository.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v14\Core\LayoutRepository.Accepted.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v19\Core\LayoutRepository.V19Options.Accepted.cs" Link="LayoutRepository.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v21\App\Services\SpectrumFrameSmoothing.V21.cs" Link="Services\SpectrumFrameSmoothing.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v21\App\Windows\MediaWindow.V21ClockCompact.cs" Link="Windows\MediaWindow.V21ClockCompact.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v21\Tests\V21SpectrumAndClockContractTests.cs" Link="V21SpectrumAndClockContractTests.cs" />
+  </ItemGroup>
+</Project>

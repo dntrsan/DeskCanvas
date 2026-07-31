@@ -1,0 +1,14 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Core'">
+    <Compile Remove="$(MSBuildProjectDirectory)\LayoutRepository.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v12\Core\LayoutRepository.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v14\Core\LayoutRepository.cs" Link="LayoutRepository.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v14\Tests\V14MigrationContractTests.cs" Link="V14MigrationContractTests.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Page Remove="$(MSBuildProjectDirectory)\Windows\MainWindow.xaml" />
+    <Page Include="$(MSBuildThisFileDirectory)..\overrides\v14\App\Windows\MainWindow.xaml" Link="Windows\MainWindow.xaml" />
+  </ItemGroup>
+</Project>

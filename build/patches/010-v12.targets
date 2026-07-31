@@ -1,0 +1,18 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Core'">
+    <Compile Remove="$(MSBuildProjectDirectory)\Models.cs" />
+    <Compile Remove="$(MSBuildProjectDirectory)\LayoutRepository.cs" />
+    <Compile Remove="$(MSBuildProjectDirectory)\SystemMetricMath.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v12\Core\Models.cs" Link="Models.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v12\Core\LayoutRepository.cs" Link="LayoutRepository.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v12\Core\SystemMetricMath.cs" Link="SystemMetricMath.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildProjectDirectory)\Services\NowPlayingService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v12\App\Services\NowPlayingService.cs" Link="Services\NowPlayingService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v12\App\Services\ActivationService.cs" Link="Services\ActivationService.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v12\Tests\V12ContractTests.cs" Link="V12ContractTests.cs" />
+  </ItemGroup>
+</Project>

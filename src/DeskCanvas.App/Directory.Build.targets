@@ -4,4 +4,5 @@
     <Compile Remove="Windows\MainWindow.xaml.cs" />
     <Compile Remove="Windows\MediaWindow.xaml.cs" />
   </ItemGroup>
+  <Import Project="$(MSBuildThisFileDirectory)..\..\build\patches\*.targets" />
 </Project>

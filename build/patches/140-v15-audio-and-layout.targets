@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\App\Services\AudioPeakMeter.cs" Link="Services\AudioPeakMeter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\LiveWidgetV15Behavior.cs" Link="Windows\LiveWidgetV15Behavior.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\Tests\V15AudioContractTests.cs" Link="V15AudioContractTests.cs" />
+  </ItemGroup>
+</Project>

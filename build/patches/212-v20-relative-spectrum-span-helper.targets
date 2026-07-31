@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\App\Services\ReadOnlySpanExtensions.V20.cs" Link="Services\ReadOnlySpanExtensions.V20.cs" />
+  </ItemGroup>
+</Project>

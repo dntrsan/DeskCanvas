@@ -1,0 +1,8 @@
+<Project>
+ <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+  <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v18\App\Services\ArtworkPaletteMath.cs" /><Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v18\App\Services\ArtworkPaletteMath.Reviewed.cs" /><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v18\App\Services\ArtworkPaletteMath.Accepted.cs" Link="Services\ArtworkPaletteMath.cs" />
+  <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v18\App\Windows\LiveItemContent.V18.cs" /><Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v18\App\Windows\V18EllipseGeometry.cs" /><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v17\App\Windows\LiveItemContent.ActivationFallback.Clean.cs" Link="Windows\LiveItemContent.cs" />
+  <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v18\App\Windows\V18VisualBehavior.cs" Link="Windows\V18VisualBehavior.cs" />
+ </ItemGroup>
+ <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'"><Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v18\Tests\V18VisualContractTests.Reviewed.cs" /><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v18\Tests\V18VisualContractTests.Accepted.cs" Link="V18VisualContractTests.cs" /></ItemGroup>
+</Project>

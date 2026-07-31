@@ -18,9 +18,11 @@ public partial class MainWindow : Window
         ItemsList.ItemsSource = controller.Items;
         StartupCheck.IsChecked = controller.StartWithWindows;
         controller.EditModeChanged += UpdateEditMode;
+        controller.HideAllChanged += UpdateHideAll;
         controller.StatusChanged += SetStatus;
         Closing += MainWindow_Closing;
         UpdateEditMode(controller.IsEditMode);
+        UpdateHideAll(controller.HideAll);
         updatingEditor = false;
     }
 
@@ -48,6 +50,8 @@ public partial class MainWindow : Window
 
     private void Add_Click(object sender, RoutedEventArgs e) => controller.AddFromDialog();
 
+    private void BuiltIn_Click(object sender, RoutedEventArgs e) => controller.OpenBuiltInPicker();
+
     private void EditMode_Click(object sender, RoutedEventArgs e) => controller.ToggleEditMode();
 
     private void UpdateEditMode(bool enabled)
@@ -62,6 +66,16 @@ public partial class MainWindow : Window
     }
 
     private void SetStatus(string message) => StatusText.Text = message;
+
+    private void UpdateHideAll(bool hidden)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.InvokeAsync(() => UpdateHideAll(hidden));
+            return;
+        }
+        HideAllButton.Content = hidden ? "すべて表示" : "すべて隠す";
+    }
 
     private void ItemsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -107,6 +121,9 @@ public partial class MainWindow : Window
         RotationValue.Text = $"{item.RotationDegrees:0.#}°";
         ItemLockCheck.IsChecked = item.IsLocked;
         FlipCheck.IsChecked = item.IsFlipped;
+        FlipCheck.Visibility = item.ContentKind is CanvasContentKinds.Image or CanvasContentKinds.Gif ? Visibility.Visible : Visibility.Collapsed;
+        TemporaryHideCheck.IsChecked = item.IsTemporarilyHidden;
+        DecorationCombo.SelectedIndex = item.DecorationMode switch { DecorationModes.WhiteOutline => 1, DecorationModes.OuterFrame => 2, _ => 0 };
         updatingEditor = false;
     }
 
@@ -149,6 +166,12 @@ public partial class MainWindow : Window
             controller.SetFlipped(item, FlipCheck.IsChecked == true);
         }
     }
+
+    private void TemporaryHideCheck_Click(object sender, RoutedEventArgs e) { if (!updatingEditor && SelectedItem is { } item) controller.SetTemporaryHidden(item, TemporaryHideCheck.IsChecked == true); }
+
+    private void DecorationCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (!updatingEditor && SelectedItem is { } item && DecorationCombo.SelectedItem is ComboBoxItem choice) controller.SetDecoration(item, choice.Content?.ToString() ?? DecorationModes.None); }
+
+    private void HideAll_Click(object sender, RoutedEventArgs e) => controller.SetHideAll(!controller.HideAll);
 
     private void BringFront_Click(object sender, RoutedEventArgs e)
     {

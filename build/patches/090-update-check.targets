@@ -1,0 +1,12 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildProjectDirectory)\App.Fixed.cs" />
+    <Compile Remove="$(MSBuildProjectDirectory)\Services\UpdateCheckService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v13\App\App.Update.cs" Link="App.Fixed.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v13\App\Services\UpdateCheckService.Accepted.cs" Link="Services\UpdateCheckService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v13\App\Services\WpfUpdatePrompt.cs" Link="Services\WpfUpdatePrompt.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v13\Tests\V13UpdateContractTests.cs" Link="V13UpdateContractTests.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <UseWPF>false</UseWPF>
+  </PropertyGroup>
+</Project>

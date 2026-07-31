@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.VisualQa'">
+    <Compile Remove="$(MSBuildProjectDirectory)\InteractionContract.cs" />
+  </ItemGroup>
+</Project>

@@ -25,23 +25,13 @@ public sealed class LayoutRepository
     {
         Directory.CreateDirectory(root);
         Directory.CreateDirectory(backupDirectory);
-
         var current = TryRead(layoutPath);
-        if (current is not null)
-        {
-            return Normalize(current);
-        }
-
-        foreach (var backup in Directory.EnumerateFiles(backupDirectory, "*.json")
-                     .OrderByDescending(File.GetLastWriteTimeUtc))
+        if (current is not null) return Normalize(current);
+        foreach (var backup in Directory.EnumerateFiles(backupDirectory, "*.json").OrderByDescending(File.GetLastWriteTimeUtc))
         {
             var recovered = TryRead(backup);
-            if (recovered is not null)
-            {
-                return Normalize(recovered);
-            }
+            if (recovered is not null) return Normalize(recovered);
         }
-
         return new CanvasLayout();
     }
 
@@ -50,70 +40,93 @@ public sealed class LayoutRepository
         Directory.CreateDirectory(root);
         Directory.CreateDirectory(backupDirectory);
         var temporaryPath = layoutPath + ".tmp";
-        var json = JsonSerializer.Serialize(Normalize(layout), JsonOptions);
-        File.WriteAllText(temporaryPath, json);
-
+        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(Normalize(layout), JsonOptions));
         if (File.Exists(layoutPath))
         {
-            var backupName = $"layout-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}.json";
-            File.Copy(layoutPath, Path.Combine(backupDirectory, backupName), overwrite: true);
+            File.Copy(layoutPath, Path.Combine(backupDirectory, $"layout-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}.json"), true);
         }
-
-        File.Move(temporaryPath, layoutPath, overwrite: true);
+        File.Move(temporaryPath, layoutPath, true);
         PruneBackups();
     }
 
     private static CanvasLayout Normalize(CanvasLayout layout)
     {
-        layout.Version = 1;
+        layout.Version = 2;
         layout.Settings ??= new CanvasSettings();
         layout.Items ??= [];
+        layout.Items = layout.Items.Where(item => item is not null && CanvasContentKinds.IsSupported(item.ContentKind)).ToList();
+        var itemIds = new HashSet<Guid>();
         foreach (var item in layout.Items)
         {
+            if (item.Id == Guid.Empty || !itemIds.Add(item.Id))
+            {
+                item.Id = Guid.NewGuid();
+                itemIds.Add(item.Id);
+            }
             item.DisplayName ??= "";
             item.StoredFileName ??= "";
-            item.MediaKind = item.MediaKind == "gif" ? "gif" : "image";
+            item.MonitorDevice ??= "";
+            item.DecorationMode = DecorationModes.IsSupported(item.DecorationMode) ? item.DecorationMode : DecorationModes.None;
+            item.Clock ??= new ClockOptions();
+            item.NowPlaying ??= new NowPlayingOptions();
+            item.SystemMonitor ??= new SystemMonitorOptions();
+            if (!Enum.IsDefined(item.Clock.Style))
+            {
+                item.Clock.Style = ClockStyle.Digital;
+            }
             item.Width = item.Width;
             item.Height = item.Height;
             item.Opacity = item.Opacity;
             item.RotationDegrees = item.RotationDegrees;
         }
-
         return layout;
     }
 
+    // Keep valid entries when a future or damaged individual item cannot be read.
     private static CanvasLayout? TryRead(string path)
     {
         try
         {
-            return File.Exists(path)
-                ? JsonSerializer.Deserialize<CanvasLayout>(File.ReadAllText(path), JsonOptions)
-                : null;
+            if (!File.Exists(path)) return null;
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            var rootElement = document.RootElement;
+            if (rootElement.ValueKind != JsonValueKind.Object) return null;
+            var properties = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            foreach (var property in rootElement.EnumerateObject())
+            {
+                if (!string.Equals(property.Name, "items", StringComparison.OrdinalIgnoreCase)) properties[property.Name] = property.Value.Clone();
+            }
+            using var emptyItems = JsonDocument.Parse("[]");
+            properties["items"] = emptyItems.RootElement.Clone();
+            var layout = JsonSerializer.Deserialize<CanvasLayout>(JsonSerializer.Serialize(properties), JsonOptions) ?? new CanvasLayout();
+            var items = rootElement.EnumerateObject().FirstOrDefault(property => string.Equals(property.Name, "items", StringComparison.OrdinalIgnoreCase)).Value;
+            if (items.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in items.EnumerateArray())
+                {
+                    try
+                    {
+                        var item = entry.Deserialize<CanvasItem>(JsonOptions);
+                        if (item is not null) layout.Items.Add(item);
+                    }
+                    catch (JsonException)
+                    {
+                        // Corrupt item is skipped; other placements remain usable.
+                    }
+                }
+            }
+            return layout;
         }
-        catch (JsonException)
-        {
-            return null;
-        }
-        catch (IOException)
-        {
-            return null;
-        }
+        catch (JsonException) { return null; }
+        catch (IOException) { return null; }
     }
 
     private void PruneBackups()
     {
-        foreach (var old in Directory.EnumerateFiles(backupDirectory, "*.json")
-                     .OrderByDescending(File.GetLastWriteTimeUtc)
-                     .Skip(10))
+        foreach (var old in Directory.EnumerateFiles(backupDirectory, "*.json").OrderByDescending(File.GetLastWriteTimeUtc).Skip(10))
         {
-            try
-            {
-                File.Delete(old);
-            }
-            catch (IOException)
-            {
-                // A backup being held by another process is harmless.
-            }
+            try { File.Delete(old); }
+            catch (IOException) { }
         }
     }
 }

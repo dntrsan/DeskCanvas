@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\Tests\V20WaveProgressMathTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\Tests\V20WaveProgressMathTests.Accepted2.cs" Link="V20WaveProgressMathTests.cs" />
+  </ItemGroup>
+</Project>
