@@ -1,0 +1,1 @@
+<Project><ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'"><Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v12\App\Windows\LiveItemContent.Fixed.cs"/><Compile Include="$(MSBuildProjectDirectory)\Windows\LiveItemContent.cs" /></ItemGroup></Project>

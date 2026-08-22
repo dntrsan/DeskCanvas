@@ -1,0 +1,1 @@
+<Project><ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'"><Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v12\App\Services\ActivationService.cs"/><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v17\App\Services\ActivationService.SafeWindowFallback.cs" Link="Services\ActivationService.cs"/></ItemGroup></Project>

@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Version>1.2.0-beta.2</Version>
+    <VersionPrefix>1.2.0</VersionPrefix>
+    <VersionSuffix>beta.2</VersionSuffix>
+    <PackageVersion>1.2.0-beta.2</PackageVersion>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.2</FileVersion>
+    <InformationalVersion>1.2.0-beta.2</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v22\App\ApplicationVersion.V22Beta.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v23\App\ApplicationVersion.V23Beta2.cs" Link="ApplicationVersion.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v22\Tests\V22BetaVersionContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v23\Tests\V23Beta2VersionContractTests.cs" Link="V23Beta2VersionContractTests.cs" />
+  </ItemGroup>
+</Project>

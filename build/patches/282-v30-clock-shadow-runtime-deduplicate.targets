@@ -1,0 +1,8 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\final\App\V30TextClockAndCardPolish.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\final\App\Windows\MediaWindow.V30TextClockResize.Final2.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\final\App\V30TextClockAndCardPolish.cs" Link="V30TextClockAndCardPolish.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\final\App\Windows\MediaWindow.V30TextClockResize.Final2.cs" Link="Windows\MediaWindow.V30TextClockResize.cs" />
+  </ItemGroup>
+</Project>

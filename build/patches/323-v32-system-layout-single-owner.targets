@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <!-- SystemMonitorItemContent is the sole owner of responsive sizing. -->
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30b\App\V30SystemReviewPolish.Final2.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30b\App\Windows\MediaWindow.V30SystemAuxViewbox.cs" />
+  </ItemGroup>
+</Project>

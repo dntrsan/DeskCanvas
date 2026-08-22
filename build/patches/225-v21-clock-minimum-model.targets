@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Core'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\Core\Models.V20ProgressChoices.Accepted.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v21\Core\Models.V21ClockMinimum.cs" Link="Models.cs" />
+  </ItemGroup>
+</Project>

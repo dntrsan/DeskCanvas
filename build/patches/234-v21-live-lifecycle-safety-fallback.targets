@@ -1,0 +1,8 @@
+<Project>
+  <!-- v21's renderer is safe to resume only when the lease controller itself is reusable.  The accepted v20 controller
+       has Dispose == Suspend, so it releases the reader/subscription while preserving the object for SetActive(true). -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v21\App\Services\AudioSpectrum.V21Smooth.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\App\Services\AudioSpectrum.V20RelativeAccepted2.cs" Link="Services\AudioSpectrum.cs" />
+  </ItemGroup>
+</Project>

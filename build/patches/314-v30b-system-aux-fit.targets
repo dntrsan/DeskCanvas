@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30b\App\V30SystemAuxFit.Final.cs" Link="V30SystemAuxFit.cs" />
+  </ItemGroup>
+</Project>

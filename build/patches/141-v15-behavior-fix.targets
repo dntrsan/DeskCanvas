@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\LiveWidgetV15Behavior.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\LiveWidgetV15Behavior.Accepted.cs" Link="Windows\LiveWidgetV15Behavior.cs" />
+  </ItemGroup>
+</Project>

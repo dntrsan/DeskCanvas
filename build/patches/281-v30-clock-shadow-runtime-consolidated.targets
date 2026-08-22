@@ -1,0 +1,16 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <!-- Retire the v30 experiments.  300 owns layer and System Status behavior. -->
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30RuntimePolish.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30RuntimePolish.Fixed.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30RuntimePolish.Final.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30ClockUi.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30Aliases.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30Aliases2.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30Aliases3.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\SystemMonitor.V30Responsive.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\final\App\Windows\MediaWindow.V30TextClockResize.Final.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\final\App\V30TextClockAndCardPolish.cs" Link="V30TextClockAndCardPolish.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\final\App\Windows\MediaWindow.V30TextClockResize.Final2.cs" Link="Windows\MediaWindow.V30TextClockResize.cs" />
+  </ItemGroup>
+</Project>

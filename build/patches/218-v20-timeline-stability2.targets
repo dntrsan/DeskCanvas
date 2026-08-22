@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\App\Services\NowPlayingService.V20Stable.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\App\Services\NowPlayingService.V20Stable2.cs" Link="Services\NowPlayingService.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\Tests\V20TimelineInjectedStabilityTests.cs" Link="V20TimelineInjectedStabilityTests.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,8 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <!-- The MediaWindow Viewbox owns final auxiliary fitting.  Retire the
+         experimental text-rewrite hooks so metric updates remain untouched. -->
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30b\App\V30SystemAuxFit.Final4.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30b\App\V30SystemRamCompact.Final.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v19\App\Windows\MainWindow.ThemeAndNowPlayingOptions.V19.Accepted.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v19\App\Windows\MainWindow.ThemeAndNowPlayingOptions.V19.Accepted2.cs" Link="Windows\MainWindow.ThemeEditor.cs" />
+  </ItemGroup>
+</Project>

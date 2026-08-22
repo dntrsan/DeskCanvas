@@ -19,13 +19,25 @@ internal sealed class DesktopWindowService
     private const uint SwpNoMove = 0x0002;
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoZOrder = 0x0004;
+    private const uint GwHwndPrevious = 3;
+    private const int MonitorDpiTypeEffective = 0;
+    private static readonly IntPtr HwndBottom = new(1);
 
-    internal IntPtr CurrentDesktopHost => Locate().Host;
+    internal static IntPtr FindDesktopHost()
+    {
+        var desktop = Locate();
+        return desktop.IsValid ? desktop.Host : IntPtr.Zero;
+    }
+
+    internal IntPtr CurrentDesktopHost => FindDesktopHost();
 
     internal IReadOnlyList<DisplayArea> GetDisplays()
     {
         var result = new List<DisplayArea>();
-        _ = EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, CollectMonitor, IntPtr.Zero);
+        if (!EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, CollectMonitor, IntPtr.Zero) && result.Count == 0)
+        {
+            return result;
+        }
         return result;
 
         bool CollectMonitor(
@@ -41,16 +53,31 @@ internal sealed class DesktopWindowService
             };
             if (GetMonitorInfo(monitor, ref info))
             {
+                var scale = TryGetMonitorScale(monitor);
                 result.Add(new DisplayArea(
                     info.Device,
-                    info.Work.Left,
-                    info.Work.Top,
-                    info.Work.Right - info.Work.Left,
-                    info.Work.Bottom - info.Work.Top,
+                    info.Monitor.Left / scale,
+                    info.Monitor.Top / scale,
+                    (info.Monitor.Right - info.Monitor.Left) / scale,
+                    (info.Monitor.Bottom - info.Monitor.Top) / scale,
                     (info.Flags & 1) != 0));
             }
             return true;
         }
+    }
+
+    private static double TryGetMonitorScale(IntPtr monitor)
+    {
+        try
+        {
+            if (GetDpiForMonitor(monitor, MonitorDpiTypeEffective, out var dpiX, out _) == 0 && dpiX > 0)
+            {
+                return dpiX / 96d;
+            }
+        }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
+        return 1;
     }
 
     internal void Configure(IntPtr window, bool clickThrough)
@@ -65,6 +92,10 @@ internal sealed class DesktopWindowService
             ? currentExStyle | WsExTransparent
             : currentExStyle & ~WsExTransparent;
         _ = SetWindowLongPtr(window, GwlpExStyle, new IntPtr(currentExStyle));
+
+        // Styles only. This must not touch the Z-order: Configure runs on every edit-mode
+        // toggle, and sending the widget to HWND_BOTTOM here pushed it behind Progman/WorkerW,
+        // i.e. behind the wallpaper, until the next Reposition happened to pull it back.
         _ = SetWindowPos(
             window,
             IntPtr.Zero,
@@ -75,32 +106,54 @@ internal sealed class DesktopWindowService
             SwpNoActivate | SwpFrameChanged | SwpNoMove | SwpNoSize | SwpNoZOrder);
     }
 
-    internal void PlaceAboveDesktop(
+    internal bool PlaceAboveDesktop(
         IntPtr window,
         double left,
         double top,
         double width,
-        double height)
+        double height,
+        bool showWindow = true)
     {
         var desktop = Locate();
         if (!desktop.IsValid)
         {
-            return;
+            Demote(window);
+            return false;
         }
 
         // A top-level window inserted directly above Progman/WorkerW remains
         // visible with desktop icons, but normal application windows cover it.
+        //
+        // hWndInsertAfter names the window that ends up ABOVE ours, so passing desktop.Host
+        // would place the widget underneath the wallpaper. Target the sibling immediately
+        // above the desktop host instead; HWND_TOP is the fallback when there is none.
+        var aboveDesktop = GetWindow(desktop.Host, GwHwndPrevious);
+        var flags = SwpNoActivate | (showWindow ? SwpShowWindow : 0);
         if (!SetWindowPos(
                 window,
-                desktop.Host,
+                aboveDesktop,
                 checked((int)Math.Round(left)),
                 checked((int)Math.Round(top)),
                 Math.Max(1, checked((int)Math.Round(width))),
                 Math.Max(1, checked((int)Math.Round(height))),
-                SwpNoActivate | SwpShowWindow))
+                flags))
         {
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "素材をデスクトップへ配置できませんでした。");
+            Demote(window);
+            return false;
         }
+        return true;
+    }
+
+    internal void Demote(IntPtr window)
+    {
+        _ = SetWindowPos(
+            window,
+            HwndBottom,
+            0,
+            0,
+            0,
+            0,
+            SwpNoActivate | SwpNoMove | SwpNoSize);
     }
 
     private static DesktopHandles Locate()
@@ -177,6 +230,9 @@ internal sealed class DesktopWindowService
         string? windowName);
 
     [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr GetWindow(IntPtr window, uint command);
+
+    [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr SetParent(IntPtr child, IntPtr newParent);
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -205,6 +261,9 @@ internal sealed class DesktopWindowService
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfoEx info);
+
+    [DllImport("Shcore.dll")]
+    private static extern int GetDpiForMonitor(IntPtr monitor, int dpiType, out uint dpiX, out uint dpiY);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr64(IntPtr window, int index);

@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.VisualQa' and '$(DESKCANVAS_V21_CLOCK_QA)' == '1'">
+    <StartupObject>V21ClockQaEntry</StartupObject>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.VisualQa'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\qa\DeskCanvas.VisualQa\V21ClockQaEntry.cs" Link="V21ClockQaEntry.cs" />
+  </ItemGroup>
+</Project>

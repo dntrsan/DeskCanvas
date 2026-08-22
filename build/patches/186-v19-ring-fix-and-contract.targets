@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v19\App\Windows\SystemMonitor.V19.RingAccepted2.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v19\App\Windows\SystemMonitor.V19.RingAccepted3.cs" Link="Windows\SystemMonitor.V19.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v19\Tests\V19SystemMetricRingContractTests.cs" Link="V19SystemMetricRingContractTests.cs" />
+  </ItemGroup>
+</Project>

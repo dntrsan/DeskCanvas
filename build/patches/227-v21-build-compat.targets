@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v21\App\Services\ReadOnlySpanLinq.V21.cs" Link="Services\ReadOnlySpanLinq.V21.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v21\App\Windows\GlobalAliases.V21.cs" Link="Windows\GlobalAliases.V21.cs" />
+  </ItemGroup>
+</Project>

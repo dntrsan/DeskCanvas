@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v21\App\Windows\MediaWindow.V21ClockCompact.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v21\App\Windows\MediaWindow.V21ClockCompact.Accepted.cs" Link="Windows\MediaWindow.V21ClockCompact.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v14\App\Windows\LiveItemContent.Accepted2.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\LiveItemContent.Accepted3.cs" Link="Windows\LiveItemContent.cs" />
+    <Compile Remove="$(MSBuildProjectDirectory)\Windows\MediaWindow.Fixed.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\MediaWindow.DpiFixed.cs" Link="Windows\MediaWindow.Fixed.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\LiveWidgetV15Behavior.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\LiveWidgetV15Behavior.Accepted.cs" />
+  </ItemGroup>
+</Project>

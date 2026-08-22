@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportUi.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportBootstrapAndController.cs" Link="LegacyImportBootstrapAndController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportMainWindow.cs" Link="LegacyImportMainWindow.cs" />
+  </ItemGroup>
+</Project>

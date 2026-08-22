@@ -8,9 +8,9 @@ namespace DeskCanvas.App.Media;
 internal static class MediaDecoder
 {
     private const long MaximumSourcePixels = 120_000_000;
-    private const long MaximumDecodedBytes = 512L * 1024 * 1024;
-    private const int MaximumStaticDimension = 8192;
-    private const int MaximumAnimatedDimension = 4096;
+    private const long MaximumDecodedBytes = 64L * 1024 * 1024;
+    private const int MaximumStaticDimension = 4096;
+    private const int MaximumAnimatedDimension = 2048;
 
     internal static DecodedMedia Decode(string path)
     {
@@ -40,25 +40,13 @@ internal static class MediaDecoder
             throw new InvalidDataException("GIFの展開後サイズが大きすぎます。");
         }
 
-        var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        using var bitmap = new SKBitmap(info);
+        var target = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
         var frames = new List<DecodedFrame>(frameCount);
         var frameInfo = codec.FrameInfo;
 
         for (var index = 0; index < frameCount; index++)
         {
-            if (index == 0)
-            {
-                bitmap.Erase(SKColors.Transparent);
-            }
-
-            var options = new SKCodecOptions(index, index == 0 ? -1 : index - 1);
-            var result = codec.GetPixels(info, bitmap.GetPixels(), options);
-            if (result is not SKCodecResult.Success and not SKCodecResult.IncompleteInput)
-            {
-                throw new InvalidDataException($"画像フレームを展開できませんでした（{result}）。");
-            }
-
+            using var bitmap = DecodeFrame(codec, index, target);
             var durationMs = index < frameInfo.Length ? frameInfo[index].Duration : 100;
             frames.Add(new DecodedFrame(
                 ToBitmapSource(bitmap),
@@ -66,6 +54,33 @@ internal static class MediaDecoder
         }
 
         return new DecodedMedia(sourceInfo.Width, sourceInfo.Height, frames);
+    }
+
+    private static SKBitmap DecodeFrame(SKCodec codec, int index, SKImageInfo target)
+    {
+        // SKCodec only decodes into sizes it natively supports (JPEG 1/2, 1/4, 1/8;
+        // PNG/GIF/WebP usually original). Decode at a supported size, then resample.
+        var supported = codec.GetScaledDimensions((float)target.Width / Math.Max(1, codec.Info.Width));
+        var decodeInfo = new SKImageInfo(
+            Math.Max(1, supported.Width),
+            Math.Max(1, supported.Height),
+            SKColorType.Bgra8888,
+            SKAlphaType.Premul);
+        var decoded = new SKBitmap(decodeInfo);
+        if (index == 0) decoded.Erase(SKColors.Transparent);
+        var options = new SKCodecOptions(index, index == 0 ? -1 : index - 1);
+        var result = codec.GetPixels(decodeInfo, decoded.GetPixels(), options);
+        if (result is not SKCodecResult.Success and not SKCodecResult.IncompleteInput)
+        {
+            decoded.Dispose();
+            throw new InvalidDataException($"画像フレームを展開できませんでした（{result}）。");
+        }
+
+        if (decoded.Width == target.Width && decoded.Height == target.Height) return decoded;
+
+        var resized = decoded.Resize(target, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
+        decoded.Dispose();
+        return resized ?? throw new InvalidDataException("画像を縮小できませんでした。");
     }
 
     private static BitmapSource ToBitmapSource(SKBitmap bitmap)

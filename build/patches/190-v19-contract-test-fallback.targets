@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v19\Tests\V19OptionsAndVisualContractTests.Accepted.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,16 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Core'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v21\Core\Models.V21ClockMinimum.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\Core\Models.V30.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\Core\Models.V30.cs" Link="Models.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30RuntimePolish.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30RuntimePolish.Fixed.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30RuntimePolish.Fixed.cs" Link="V30RuntimePolish.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\Tests\V30ContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\Tests\V30ContractTests.cs" Link="V30ContractTests.cs" />
+  </ItemGroup>
+</Project>

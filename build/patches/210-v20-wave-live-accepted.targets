@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v19\App\Windows\LiveItemContent.V19.Accepted5.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\App\Windows\LiveItemContent.V20WaveAccepted.cs" Link="Windows\LiveItemContent.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v20\Tests\V20WaveProgressMathTests.cs" Link="V20WaveProgressMathTests.cs" />
+  </ItemGroup>
+</Project>

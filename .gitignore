@@ -4,3 +4,8 @@ artifacts/
 .vs/
 *.user
 *.suo
+build/backups/
+build/runtime-smoke/
+build/*.log
+build/qa/**/*.png
+build/qa/**/renders/

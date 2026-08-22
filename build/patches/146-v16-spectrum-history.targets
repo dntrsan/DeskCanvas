@@ -1,0 +1,10 @@
+<Project>
+ <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+  <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v15\App\Services\AudioPeakMeter.Accepted.cs" />
+  <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v16\App\Services\AudioSpectrum.cs" Link="Services\AudioSpectrum.cs" />
+  <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v16\App\Services\NetworkHistory.cs" Link="Services\NetworkHistory.cs" />
+  <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\LiveItemContent.Accepted6.cs" />
+  <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v16\App\Windows\LiveItemContent.Spectrum.cs" Link="Windows\LiveItemContent.cs" />
+ </ItemGroup>
+ <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'"><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v16\Tests\V16SpectrumHistoryContractTests.cs" Link="V16SpectrumHistoryContractTests.cs" /></ItemGroup>
+</Project>

@@ -1,0 +1,1 @@
+<Project><ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'"><Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\App\Windows\SystemMonitor.V20Adaptive.Accepted3.cs"/><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\App\SystemMonitor.V30Responsive.cs" Link="Windows\SystemMonitor.cs"/></ItemGroup></Project>

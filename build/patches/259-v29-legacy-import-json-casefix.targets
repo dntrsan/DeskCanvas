@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Core'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\Core\LegacyLayoutImportService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\Core\LegacyLayoutImportService.Fixed.cs" Link="LegacyLayoutImportService.cs" />
+  </ItemGroup>
+</Project>

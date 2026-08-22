@@ -1,0 +1,8 @@
+namespace DeskCanvas.Core;
+public static class LayerOrderMath
+{
+ public static List<CanvasItem> Normalize(IReadOnlyList<CanvasItem>? items){if(items is null)return[];var ordered=items.Select((item,index)=>(item,index)).Where(x=>x.item is not null).OrderBy(x=>x.item.ZIndex).ThenBy(x=>x.index).Select(x=>x.item).ToList();Renumber(ordered);return ordered;}
+ public static bool MoveToFront(IList<CanvasItem> items,CanvasItem? item)=>Move(items,item,int.MaxValue);public static bool MoveToBack(IList<CanvasItem> items,CanvasItem? item)=>Move(items,item,int.MinValue);public static bool MoveUp(IList<CanvasItem> items,CanvasItem? item)=>Move(items,item,1);public static bool MoveDown(IList<CanvasItem> items,CanvasItem? item)=>Move(items,item,-1);
+ private static bool Move(IList<CanvasItem> items,CanvasItem? item,int step){if(item is null||items.Count<2){NormalizeInto(items);return false;}NormalizeInto(items);var current=IndexOf(items,item);if(current<0)return false;var target=step switch{int.MaxValue=>items.Count-1,int.MinValue=>0,_=>Math.Clamp(current+step,0,items.Count-1)};if(target==current)return false;items.RemoveAt(current);items.Insert(target,item);Renumber(items);return true;}
+ public static void NormalizeInto(IList<CanvasItem> items){var ordered=Normalize(items.ToList());items.Clear();foreach(var item in ordered)items.Add(item);}private static void Renumber(IList<CanvasItem> items){for(var index=0;index<items.Count;index++)items[index].ZIndex=index;}private static int IndexOf(IList<CanvasItem> items,CanvasItem item){for(var i=0;i<items.Count;i++)if(ReferenceEquals(items[i],item))return i;return-1;}
+}

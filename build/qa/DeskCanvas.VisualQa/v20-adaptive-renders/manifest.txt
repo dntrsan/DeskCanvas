@@ -1,0 +1,33 @@
+v20 adaptive content STA render manifest
+No live process, installed app, registry, or user data was opened.
+System width=300DIP; Now Playing=360x220DIP; scale=RenderTargetBitmap scale.
+system all 100% desired=361 height=361 top=405 divider=visible
+system cpu-only 100% desired=128 height=128 top=405 divider=collapsed
+system network-only 100% desired=140 height=140 top=405 divider=collapsed
+system metrics-only 100% desired=264 height=264 top=405 divider=collapsed
+system all-hidden 100% desired=60 height=96 top=405 divider=collapsed
+now Simple ratio=0 100% seek=true spectrum=false state=Paused
+now Simple ratio=50 100% seek=true spectrum=false state=Paused
+now Simple ratio=100 100% seek=true spectrum=false state=Paused
+now Wave ratio=0 100% seek=true spectrum=false state=Paused
+now Wave ratio=50 100% seek=true spectrum=false state=Paused
+now Wave ratio=100 100% seek=true spectrum=false state=Paused
+now Wave ratio=50 100% seek=false spectrum=false state=Paused
+wave Playing 100% phase=0 -> 0.1; paused static frame rendered
+spectrum off 100% readerCreated=0 visualizer=Collapsed
+spectrum on 100% readerCreated=1 visualizer=Visible
+system all 150% desired=361 height=361 top=405 divider=visible
+system cpu-only 150% desired=128 height=128 top=405 divider=collapsed
+system network-only 150% desired=140 height=140 top=405 divider=collapsed
+system metrics-only 150% desired=264 height=264 top=405 divider=collapsed
+system all-hidden 150% desired=60 height=96 top=405 divider=collapsed
+now Simple ratio=0 150% seek=true spectrum=false state=Paused
+now Simple ratio=50 150% seek=true spectrum=false state=Paused
+now Simple ratio=100 150% seek=true spectrum=false state=Paused
+now Wave ratio=0 150% seek=true spectrum=false state=Paused
+now Wave ratio=50 150% seek=true spectrum=false state=Paused
+now Wave ratio=100 150% seek=true spectrum=false state=Paused
+now Wave ratio=50 150% seek=false spectrum=false state=Paused
+wave Playing 150% phase=0 -> 0.1; paused static frame rendered
+spectrum off 150% readerCreated=0 visualizer=Collapsed
+spectrum on 150% readerCreated=1 visualizer=Visible

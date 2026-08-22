@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\final\App\V30CardShadowGuarantee.cs" Link="V30CardShadowGuarantee.cs" />
+  </ItemGroup>
+</Project>

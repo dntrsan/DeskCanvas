@@ -1,0 +1,27 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Version>1.2.0-beta.14</Version>
+    <VersionPrefix>1.2.0</VersionPrefix>
+    <VersionSuffix>beta.14</VersionSuffix>
+    <PackageVersion>1.2.0-beta.14</PackageVersion>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.14</FileVersion>
+    <InformationalVersion>1.2.0-beta.14</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DeskCanvasInstallerSource>$(MSBuildThisFileDirectory)..\..\installer\DeskCanvas.v41.Beta14.GlassRefine.SingleFile.iss</DeskCanvasInstallerSource>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v40\App\ApplicationVersion.V40Beta13.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v41\App\ApplicationVersion.V41Beta14.cs" Link="ApplicationVersion.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v40\Tests\V40Beta13ContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v41\Tests\V41Beta14ContractTests.cs" Link="V41Beta14ContractTests.cs" />
+  </ItemGroup>
+</Project>

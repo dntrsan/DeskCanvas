@@ -1,0 +1,1 @@
+<Project><ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'"><Compile Remove="$(MSBuildProjectDirectory)\Services\NowPlayingService.cs"/><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v12\App\Services\NowPlayingService.cs" Link="Services\NowPlayingService.cs" /></ItemGroup></Project>

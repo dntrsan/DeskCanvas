@@ -1,0 +1,1 @@
+<Project><ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'"><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v18\App\Windows\V18EllipseGeometry.cs" Link="Windows\V18EllipseGeometry.cs" /></ItemGroup></Project>

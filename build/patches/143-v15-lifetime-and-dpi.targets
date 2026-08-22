@@ -1,0 +1,14 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v15\App\Services\AudioPeakMeter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\App\Services\AudioPeakMeter.Accepted.cs" Link="Services\AudioPeakMeter.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\LiveItemContent.Accepted3.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\LiveItemContent.Accepted4.cs" Link="Windows\LiveItemContent.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\MediaWindow.DpiFixed.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\MediaWindow.DpiFixed2.cs" Link="Windows\MediaWindow.Fixed.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\MediaWindowDpiMath.cs" Link="Windows\MediaWindowDpiMath.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v15\Tests\V15IntegrationContractTests.cs" Link="V15IntegrationContractTests.cs" />
+  </ItemGroup>
+</Project>

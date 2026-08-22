@@ -1,20 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <AssemblyName>DeskCanvas</AssemblyName>
     <RootNamespace>DeskCanvas.App</RootNamespace>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1.0</FileVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <Product>DeskCanvas</Product>
-    <Description>画像とGIFをWindowsデスクトップへ飾るアプリ</Description>
+    <Description>画像・GIF・時計・再生情報・システム情報をWindowsデスクトップへ置くアプリ</Description>
     <Authors>DeskCanvas</Authors>
   </PropertyGroup>
   <ItemGroup>
@@ -24,9 +25,23 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="App.xaml.cs" />
-    <Compile Remove="GlobalAliases.cs" />
     <Compile Remove="Windows\MainWindow.xaml.cs" />
     <Compile Remove="Windows\MediaWindow.xaml.cs" />
+    <!-- Superseded global-using files. A global using alias may be declared only once per
+         compilation, and these declared Brush four times and Button three times between
+         them (CS1537, whole assembly fails). Their union now lives in GlobalAliases.Fixed.cs. -->
+    <Compile Remove="GlobalAliases.cs" />
+    <Compile Remove="MoreGlobalUsings.cs" />
+    <Compile Remove="V12AcceptedAliases.cs" />
+    <Compile Remove="V12AcceptedColorAlias.cs" />
+    <Compile Remove="V12ControllerAliasCompatibility.cs" />
+    <Compile Remove="V12LiveAliases.cs" />
+    <Compile Remove="V13UpdateAliases.cs" />
+    <Compile Remove="V13UpdateAliases.Fixed.cs" />
+    <Compile Remove="V13UpdateAliases.Fixed2.cs" />
+    <!-- Per-widget theme picker: depends on CanvasItem.Theme / WidgetThemeKind, which
+         do not exist in DeskCanvas.Core yet. Excluded until the model lands. -->
+    <Compile Remove="Windows\MainWindow.ThemeEditor.cs" />
     <Compile Remove="Services\DesktopWindowService.cs" />
     <Compile Remove="Media\MediaDecoder.cs" />
   </ItemGroup>

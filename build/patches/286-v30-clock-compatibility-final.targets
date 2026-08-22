@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\final\App\Windows\ClockCompactLayoutMath.V30Compatibility.cs" Link="Windows\ClockCompactLayoutMath.cs" />
+  </ItemGroup>
+</Project>
