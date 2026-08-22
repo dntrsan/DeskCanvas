@@ -1,8 +1,8 @@
 namespace DeskCanvas.Core;
 
-internal static class V12UintAverageExtensions
+public static class V12UintAverageExtensions
 {
-    internal static double Average(this uint[] values)
+    public static double Average(this uint[] values)
     {
         ArgumentOutOfRangeException.ThrowIfZero(values.Length);
         double total = 0;

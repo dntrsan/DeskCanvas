@@ -3,10 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using Brushes = System.Windows.Media.Brushes;
-using Color = System.Windows.Media.Color;
-using HorizontalAlignment = System.Windows.HorizontalAlignment;
-using Orientation = System.Windows.Controls.Orientation;
 using DeskCanvas.App.Media;
 using DeskCanvas.Core;
 using Microsoft.Win32;
@@ -99,22 +95,22 @@ internal sealed class ClockItemContent : IDesktopItemContent
     private readonly CanvasItem item;
     private readonly Grid root = new();
     private readonly Border card;
-    private readonly TextBlock time = new() { Foreground = WidgetTheme.Primary, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center };
-    private readonly TextBlock seconds = new() { Foreground = WidgetTheme.Secondary, HorizontalAlignment = HorizontalAlignment.Center, Opacity = .72, Margin = new Thickness(7, 0, 0, 7), VerticalAlignment = VerticalAlignment.Bottom };
-    private readonly TextBlock meridiem = new() { Foreground = WidgetTheme.Secondary, FontSize = 11, Opacity = .72, Margin = new Thickness(6, 0, 0, 8), VerticalAlignment = VerticalAlignment.Bottom };
+    private readonly TextBlock time = Design.Tabular(Design.Text("", 52, WidgetTheme.Primary, FontWeights.SemiBold, display: true));
+    private readonly TextBlock seconds = Design.Tabular(Design.Text("", 15, WidgetTheme.Tertiary, FontWeights.Medium));
+    private readonly TextBlock meridiem = Design.Text("", 12, WidgetTheme.Tertiary, FontWeights.Medium);
     private readonly TextBlock splitHour = SplitNumber();
     private readonly TextBlock splitMinute = SplitNumber();
-    private readonly TextBlock splitSeconds = new() { Foreground = WidgetTheme.Secondary, FontSize = 12, Opacity = .7, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 3, 0, 0) };
+    private readonly TextBlock splitSeconds = Design.Tabular(Design.Text("", 12, WidgetTheme.Tertiary, FontWeights.Medium));
     private readonly TextBlock digitalDate = CreateDateText();
     private readonly TextBlock splitDate = CreateDateText();
     private readonly TextBlock analogDate = CreateDateText();
     private readonly Canvas dial = new() { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch };
-    private readonly Ellipse dialFace = new() { Stroke = Brushes.White, StrokeThickness = 2, Fill = new SolidColorBrush(Color.FromArgb(20, 0, 0, 0)) };
+    private readonly Ellipse dialFace = new() { Stroke = Design.Frozen(Design.Argb(0x2E, 0xFF, 0xFF, 0xFF)), StrokeThickness = 1, Fill = Design.Frozen(Design.Argb(0x14, 0xFF, 0xFF, 0xFF)) };
     private readonly List<Line> dialMarks = [];
-    private readonly Line hourHand = new() { Stroke = Brushes.White, StrokeThickness = 4, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
-    private readonly Line minuteHand = new() { Stroke = WidgetTheme.Secondary, StrokeThickness = 2.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
-    private readonly Line secondHand = new() { Stroke = new SolidColorBrush(Color.FromRgb(255, 112, 130)), StrokeThickness = 1.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
-    private readonly Ellipse centerDot = new() { Width = 7, Height = 7, Fill = new SolidColorBrush(Color.FromRgb(251, 210, 192)) };
+    private readonly Line hourHand = new() { Stroke = Brushes.White, StrokeThickness = 3.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+    private readonly Line minuteHand = new() { Stroke = Brushes.White, StrokeThickness = 2.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+    private readonly Line secondHand = new() { Stroke = Design.AccentBrush, StrokeThickness = 1.4, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+    private readonly Ellipse centerDot = new() { Width = 6, Height = 6, Fill = Design.AccentBrush };
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly StackPanel digital = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
     private readonly StackPanel split = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
@@ -124,7 +120,7 @@ internal sealed class ClockItemContent : IDesktopItemContent
     internal ClockItemContent(CanvasItem item)
     {
         this.item = item;
-        card = WidgetTheme.Card(root);
+        card = WidgetTheme.Card(root, item);
         timer.Tick += Timer_Tick;
         Build();
         Update();
@@ -151,38 +147,54 @@ internal sealed class ClockItemContent : IDesktopItemContent
         }
     }
 
-    internal void Refresh() => Update();
-
-    private static TextBlock CreateDateText() => new()
+    internal void Refresh()
     {
-        Foreground = WidgetTheme.Secondary,
-        HorizontalAlignment = HorizontalAlignment.Center,
-        FontSize = 12,
-        Background = new SolidColorBrush(Color.FromArgb(22, 255, 255, 255)),
-        Padding = new Thickness(9, 3, 9, 3),
-        Margin = new Thickness(0, 6, 0, 0),
-        TextAlignment = TextAlignment.Center
-    };
+        WidgetTheme.ApplySurface(card, item);
+        Update();
+    }
 
-    private static TextBlock SplitNumber() => new()
+    /// <summary>
+    /// Plain secondary caption rather than a chip, so the card stays quiet. Left at the
+    /// regular weight because the date is Japanese, and the CJK fallback face has no
+    /// 500-weight cut to render a Medium request with.
+    /// </summary>
+    private static TextBlock CreateDateText()
     {
-        Foreground = WidgetTheme.Primary,
-        FontSize = 35,
-        FontWeight = FontWeights.SemiBold,
-        TextAlignment = TextAlignment.Center,
-        HorizontalAlignment = HorizontalAlignment.Center,
-        VerticalAlignment = VerticalAlignment.Center
-    };
+        var block = Design.Tabular(Design.Text("", 12, WidgetTheme.Secondary));
+        block.HorizontalAlignment = HorizontalAlignment.Center;
+        block.TextAlignment = TextAlignment.Center;
+        block.Margin = new Thickness(0, 7, 0, 0);
+        return block;
+    }
+
+    private static TextBlock SplitNumber()
+    {
+        var block = Design.Tabular(Design.Text("", 34, WidgetTheme.Primary, FontWeights.SemiBold, display: true));
+        block.TextAlignment = TextAlignment.Center;
+        block.HorizontalAlignment = HorizontalAlignment.Center;
+        block.VerticalAlignment = VerticalAlignment.Center;
+        return block;
+    }
 
     private void Build()
     {
+        // Seconds and AM/PM ride the baseline of the large time, as on a lock screen.
+        seconds.VerticalAlignment = VerticalAlignment.Bottom;
+        seconds.Margin = new Thickness(8, 0, 0, 9);
+        meridiem.VerticalAlignment = VerticalAlignment.Bottom;
+        meridiem.Margin = new Thickness(7, 0, 0, 10);
+        splitSeconds.HorizontalAlignment = HorizontalAlignment.Center;
+        splitSeconds.Margin = new Thickness(0, 6, 0, 0);
+
         dial.Children.Add(dialFace);
         for (var index = 0; index < 12; index++)
         {
+            // Quarter marks are emphasised; the rest recede.
+            var quarter = index % 3 == 0;
             var mark = new Line
             {
-                Stroke = WidgetTheme.Primary,
-                StrokeThickness = index % 3 == 0 ? 2.4 : 1.2,
+                Stroke = quarter ? WidgetTheme.Primary : WidgetTheme.Tertiary,
+                StrokeThickness = quarter ? 2.2 : 1.2,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round
             };
@@ -204,7 +216,10 @@ internal sealed class ClockItemContent : IDesktopItemContent
 
         var splitRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         splitRow.Children.Add(SplitCell(splitHour));
-        splitRow.Children.Add(new TextBlock { Text = ":", Foreground = WidgetTheme.Secondary, FontSize = 27, FontWeight = FontWeights.Light, Margin = new Thickness(6, 4, 6, 0), VerticalAlignment = VerticalAlignment.Center, Opacity = .7 });
+        var colon = Design.Text(":", 26, WidgetTheme.Tertiary, FontWeights.Light, display: true);
+        colon.Margin = new Thickness(7, 3, 7, 0);
+        colon.VerticalAlignment = VerticalAlignment.Center;
+        splitRow.Children.Add(colon);
         splitRow.Children.Add(SplitCell(splitMinute));
         split.Children.Add(splitRow);
         split.Children.Add(splitSeconds);
@@ -224,12 +239,12 @@ internal sealed class ClockItemContent : IDesktopItemContent
 
     private static Border SplitCell(TextBlock number) => new()
     {
-        Width = 58,
-        Height = 50,
-        CornerRadius = new CornerRadius(15),
-        Background = new SolidColorBrush(Color.FromArgb(28, 255, 255, 255)),
-        BorderBrush = WidgetTheme.Hairline,
-        BorderThickness = new Thickness(1),
+        Width = 60,
+        Height = 54,
+        CornerRadius = new CornerRadius(14),
+        Background = Design.ControlFillBrush,
+        BorderBrush = Brushes.Transparent,
+        BorderThickness = new Thickness(0),
         Child = number
     };
 
@@ -254,7 +269,6 @@ internal sealed class ClockItemContent : IDesktopItemContent
         if (options.Style == ClockStyle.Digital)
         {
             time.Text = now.ToString(options.Use24Hour ? "HH:mm" : "h:mm");
-            time.FontSize = 50;
             seconds.Text = options.ShowSeconds ? now.ToString("ss") : "";
             seconds.Visibility = options.ShowSeconds ? Visibility.Visible : Visibility.Collapsed;
             meridiem.Text = options.Use24Hour ? "" : now.ToString("tt");

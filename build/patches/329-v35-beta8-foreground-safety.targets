@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Version>1.2.0-beta.8</Version>
+    <VersionPrefix>1.2.0</VersionPrefix>
+    <VersionSuffix>beta.8</VersionSuffix>
+    <PackageVersion>1.2.0-beta.8</PackageVersion>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.8</FileVersion>
+    <InformationalVersion>1.2.0-beta.8</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DeskCanvasInstallerSource>$(MSBuildThisFileDirectory)..\..\installer\DeskCanvas.v35.Beta8.ForegroundSafety.SingleFile.iss</DeskCanvasInstallerSource>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v34\App\ApplicationVersion.V34Beta7.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v35\App\ApplicationVersion.V35Beta8.cs" Link="ApplicationVersion.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v34\Tests\V34Beta7ContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v35\Tests\V35Beta8ContractTests.cs" Link="V35Beta8ContractTests.cs" />
+  </ItemGroup>
+</Project>

@@ -1,12 +1,17 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Interop;
 using DeskCanvas.Core;
 
 namespace DeskCanvas.App.Windows;
 
 public partial class MainWindow : Window
 {
+    private const int DwmwaUseImmersiveDarkMode = 20;
+
     private readonly DeskCanvasController controller;
     private CanvasItem? observedItem;
     private bool updatingEditor = true;
@@ -15,15 +20,38 @@ public partial class MainWindow : Window
     {
         this.controller = controller;
         InitializeComponent();
+        Title = ApplicationVersion.WindowTitle;
         ItemsList.ItemsSource = controller.Items;
         StartupCheck.IsChecked = controller.StartWithWindows;
+        OpacitySlider.PreviewMouseLeftButtonUp += SliderCommitted;
+        OpacitySlider.LostMouseCapture += SliderCommitted;
+        RotationSlider.PreviewMouseLeftButtonUp += SliderCommitted;
+        RotationSlider.LostMouseCapture += SliderCommitted;
         controller.EditModeChanged += UpdateEditMode;
         controller.HideAllChanged += UpdateHideAll;
         controller.StatusChanged += SetStatus;
+        SourceInitialized += MainWindow_SourceInitialized;
         Closing += MainWindow_Closing;
         UpdateEditMode(controller.IsEditMode);
         UpdateHideAll(controller.HideAll);
         updatingEditor = false;
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, in int value, int size);
+
+    /// <summary>
+    /// The caption bar is drawn by the OS, so it is switched to its dark variant to
+    /// avoid a white strip above the dark content.
+    /// </summary>
+    private void MainWindow_SourceInitialized(object? sender, EventArgs e)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero) return;
+        var enabled = 1;
+        try { _ = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, in enabled, sizeof(int)); }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
     }
 
     internal void OpenAndActivate()
@@ -56,16 +84,27 @@ public partial class MainWindow : Window
 
     private void UpdateEditMode(bool enabled)
     {
-        EditModeButton.Content = enabled ? "編集を終了してロック" : "編集モードをON";
-        EditModeButton.Background = enabled
-            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(178, 78, 96))
-            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(81, 70, 165));
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.InvokeAsync(() => UpdateEditMode(enabled));
+            return;
+        }
+        EditModeButton.Content = enabled ? "編集を終了" : "編集モード";
+        EditModeButton.Background = enabled ? Design.DestructiveBrush : Design.AccentBrush;
         SetStatus(enabled
             ? "編集中 — 個別ロックしていない素材へカーソルを載せると操作できます"
             : "ロック中 — Ctrl + Alt + L で編集モードを切り替え");
     }
 
-    private void SetStatus(string message) => StatusText.Text = message;
+    private void SetStatus(string message)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.InvokeAsync(() => SetStatus(message));
+            return;
+        }
+        StatusText.Text = message;
+    }
 
     private void UpdateHideAll(bool hidden)
     {
@@ -121,9 +160,14 @@ public partial class MainWindow : Window
         RotationValue.Text = $"{item.RotationDegrees:0.#}°";
         ItemLockCheck.IsChecked = item.IsLocked;
         FlipCheck.IsChecked = item.IsFlipped;
-        FlipCheck.Visibility = item.ContentKind is CanvasContentKinds.Image or CanvasContentKinds.Gif ? Visibility.Visible : Visibility.Collapsed;
         TemporaryHideCheck.IsChecked = item.IsTemporarilyHidden;
+        // Flipping only means something for bitmaps. Hiding the whole row keeps the
+        // grouped list from ending on a dangling separator.
+        var canFlip = item.ContentKind is CanvasContentKinds.Image or CanvasContentKinds.Gif;
+        FlipRow.Visibility = canFlip ? Visibility.Visible : Visibility.Collapsed;
+        TemporaryHideRow.BorderThickness = canFlip ? new Thickness(0, 0, 0, 1) : new Thickness(0);
         DecorationCombo.SelectedIndex = item.DecorationMode switch { DecorationModes.WhiteOutline => 1, DecorationModes.OuterFrame => 2, _ => 0 };
+        UpdateAppearanceEditor();
         updatingEditor = false;
     }
 
@@ -135,7 +179,7 @@ public partial class MainWindow : Window
         }
         if (!updatingEditor && SelectedItem is { } item)
         {
-            controller.SetOpacity(item, e.NewValue / 100);
+            controller.SetOpacity(item, e.NewValue / 100, persist: false);
         }
     }
 
@@ -147,8 +191,13 @@ public partial class MainWindow : Window
         }
         if (!updatingEditor && SelectedItem is { } item)
         {
-            controller.SetRotation(item, e.NewValue);
+            controller.SetRotation(item, e.NewValue, persist: false);
         }
+    }
+
+    private void SliderCommitted(object sender, MouseEventArgs e)
+    {
+        if (!updatingEditor) controller.PersistPendingChanges();
     }
 
     private void ItemLockCheck_Click(object sender, RoutedEventArgs e)
@@ -169,7 +218,8 @@ public partial class MainWindow : Window
 
     private void TemporaryHideCheck_Click(object sender, RoutedEventArgs e) { if (!updatingEditor && SelectedItem is { } item) controller.SetTemporaryHidden(item, TemporaryHideCheck.IsChecked == true); }
 
-    private void DecorationCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (!updatingEditor && SelectedItem is { } item && DecorationCombo.SelectedItem is ComboBoxItem choice) controller.SetDecoration(item, choice.Content?.ToString() ?? DecorationModes.None); }
+    // Tag carries the persisted mode so the visible label can be localised freely.
+    private void DecorationCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (!updatingEditor && SelectedItem is { } item && DecorationCombo.SelectedItem is ComboBoxItem choice) controller.SetDecoration(item, choice.Tag?.ToString() ?? DecorationModes.None); }
 
     private void HideAll_Click(object sender, RoutedEventArgs e) => controller.SetHideAll(!controller.HideAll);
 

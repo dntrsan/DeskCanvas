@@ -1,0 +1,1 @@
+<Project><ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'"><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30\App\V30Aliases2.cs" Link="V30Aliases2.cs"/></ItemGroup></Project>

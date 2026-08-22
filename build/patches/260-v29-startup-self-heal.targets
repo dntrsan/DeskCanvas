@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildProjectDirectory)\Services\StartupService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\App\StartupService.SelfHeal.cs" Link="Services\StartupService.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\Tests\V29StartupSelfHealContractTests.cs" Link="V29StartupSelfHealContractTests.cs" />
+  </ItemGroup>
+</Project>

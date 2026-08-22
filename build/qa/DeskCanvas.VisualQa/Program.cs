@@ -48,6 +48,17 @@ var now = new NowPlayingItemContent(
         Theme = WidgetThemeKind.Rose
     },
     nowService);
+var nowGlass = new NowPlayingItemContent(
+    new CanvasItem
+    {
+        ContentKind = CanvasContentKinds.NowPlaying,
+        Width = 360,
+        Height = 220,
+        Opacity = 1,
+        Theme = WidgetThemeKind.Rose,
+        NowPlaying = new NowPlayingOptions { SurfaceStyle = WidgetSurfaceStyle.MinimalGlass }
+    },
+    nowService);
 var system = new SystemMonitorItemContent(
     new CanvasItem
     {
@@ -58,6 +69,11 @@ var system = new SystemMonitorItemContent(
         Theme = WidgetThemeKind.Ocean
     },
     metricsService);
+var systemCurrent = SystemAt(317.34072022160666, 361, metricsService);
+var systemCompact = SystemAt(240, 260, metricsService);
+var systemStress = SystemAt(317.34072022160666, 361, metricsService);
+EnsureMinimalSystem(systemCurrent.View);
+EnsureMinimalSystem(systemCompact.View);
 var clock = new ClockItemContent(
     new CanvasItem
     {
@@ -74,27 +90,146 @@ var clock = new ClockItemContent(
             ShowYear = true
         }
     });
+var clockGlass = new ClockItemContent(
+    new CanvasItem
+    {
+        ContentKind = CanvasContentKinds.Clock,
+        Width = 300,
+        Height = 150,
+        Opacity = 1,
+        Theme = WidgetThemeKind.Mint,
+        Clock = new ClockOptions
+        {
+            Style = ClockStyle.Split,
+            SurfaceStyle = WidgetSurfaceStyle.MinimalGlass,
+            ShowSeconds = true,
+            ShowMonthDay = true,
+            ShowYear = true
+        }
+    });
 
 try
 {
     RenderAt150(now.View, 360, 220, Path.Combine(args[0], "now-playing-150.png"));
+    EnsureMinimalGlass(nowGlass.View);
+    RenderAtScale(nowGlass.View, 360, 220, 1, Path.Combine(args[0], "now-playing-glass-100.png"));
+    RenderAtScale(nowGlass.View, 360, 220, 1.5, Path.Combine(args[0], "now-playing-glass-150.png"));
     RenderAt150(system.View, 300, 180, Path.Combine(args[0], "system-300x180-150.png"));
+    RenderAtScale(systemCurrent.View, 317.34072022160666, 361, 1, Path.Combine(args[0], "system-current-317x361-100.png"));
+    RenderAtScale(systemCurrent.View, 317.34072022160666, 361, 1.5, Path.Combine(args[0], "system-current-317x361-150.png"));
+    RenderAtScale(systemCompact.View, 240, 260, 1, Path.Combine(args[0], "system-compact-240x260-100.png"));
+    RenderAtScale(systemCompact.View, 240, 260, 1.5, Path.Combine(args[0], "system-compact-240x260-150.png"));
+    StressResize(systemStress.View);
     RenderAt150(clock.View, 300, 150, Path.Combine(args[0], "clock-150.png"));
+    EnsureMinimalGlass(clockGlass.View);
+    RenderAtScale(clockGlass.View, 300, 150, 1, Path.Combine(args[0], "clock-glass-100.png"));
+    RenderAtScale(clockGlass.View, 300, 150, 1.5, Path.Combine(args[0], "clock-glass-150.png"));
 }
 finally
 {
     now.Dispose();
+    nowGlass.Dispose();
     system.Dispose();
+    systemCurrent.Dispose();
+    systemCompact.Dispose();
+    systemStress.Dispose();
     clock.Dispose();
+    clockGlass.Dispose();
 }
 
 Console.WriteLine("PASS 150% WPF render and opacity");
 return 0;
 
+static SystemMonitorItemContent SystemAt(double width, double height, ISystemMetricsService metrics) => new(
+    new CanvasItem
+    {
+        ContentKind = CanvasContentKinds.SystemMonitor,
+        Width = width,
+        Height = height,
+        Opacity = 1,
+        Theme = WidgetThemeKind.Ocean
+    },
+    metrics);
+
+static void EnsureMinimalSystem(DependencyObject root)
+{
+    var labels = Descendants(root)
+        .OfType<TextBlock>()
+        .Select(text => text.Text)
+        .ToHashSet(StringComparer.Ordinal);
+    foreach (var required in new[] { "SYSTEM STATUS", "CPU", "RAM", "GPU", "DOWN", "UP" })
+        if (!labels.Contains(required))
+            throw new InvalidOperationException($"minimal System Status is missing {required}");
+
+    foreach (var current in Descendants(root))
+    {
+        if (current is System.Windows.Shapes.Ellipse or System.Windows.Shapes.Path)
+            throw new InvalidOperationException("minimal System Status contains a decorative gauge or icon");
+        if (current is System.Windows.Controls.Border border &&
+            (border.Background is GradientBrush or DrawingBrush || border.BorderBrush is GradientBrush or DrawingBrush))
+            throw new InvalidOperationException("minimal System Status contains a decorative gradient/noise layer");
+    }
+}
+
+static void EnsureMinimalGlass(UIElement content)
+{
+    if (content is not System.Windows.Controls.Border
+        {
+            Background: SolidColorBrush { Color: var background },
+            BorderBrush: SolidColorBrush { Color: var border },
+            CornerRadius.TopLeft: var radius,
+            Effect: null
+        } || background != Color.FromArgb(196, 26, 28, 33) || border != Color.FromArgb(54, 255, 255, 255) || radius != 20)
+        throw new InvalidOperationException("minimal glass surface was not applied exactly");
+}
+
+static IEnumerable<DependencyObject> Descendants(DependencyObject root)
+{
+    yield return root;
+    for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        foreach (var child in Descendants(VisualTreeHelper.GetChild(root, index)))
+            yield return child;
+}
+
+static void StressResize(UIElement content)
+{
+    var host = new Grid();
+    host.Children.Add(content);
+    var initialCount = CountVisuals(content);
+    for (var index = 0; index < 50; index++)
+    {
+        var size = index % 2 == 0 ? new Size(317.34072022160666, 361) : new Size(240, 260);
+        host.Width = size.Width;
+        host.Height = size.Height;
+        host.Measure(size);
+        host.Arrange(new Rect(new Point(), size));
+        host.UpdateLayout();
+    }
+    if (CountVisuals(content) != initialCount)
+        throw new InvalidOperationException("System Status visual tree grew during repeated resize");
+    host.Children.Clear();
+}
+
+static int CountVisuals(DependencyObject root)
+{
+    var count = 1;
+    for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        count += CountVisuals(VisualTreeHelper.GetChild(root, index));
+    return count;
+}
+
 static void RenderAt150(
     UIElement content,
     double width,
     double height,
+    string outputPath)
+    => RenderAtScale(content, width, height, 1.5, outputPath);
+
+static void RenderAtScale(
+    UIElement content,
+    double width,
+    double height,
+    double scale,
     string outputPath)
 {
     Console.WriteLine($"QA rendering {Path.GetFileName(outputPath)}");
@@ -102,11 +237,11 @@ static void RenderAt150(
     {
         Width = width,
         Height = height,
-        LayoutTransform = new ScaleTransform(1.5, 1.5)
+        LayoutTransform = new ScaleTransform(scale, scale)
     };
     host.Children.Add(content);
     host.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-    var expected = new Size(width * 1.5, height * 1.5);
+    var expected = new Size(width * scale, height * scale);
     if (Math.Abs(host.DesiredSize.Width - expected.Width) > .5 ||
         Math.Abs(host.DesiredSize.Height - expected.Height) > .5)
     {
@@ -128,14 +263,15 @@ static void RenderAt150(
         center,
         4,
         0);
-    if (center[3] != byte.MaxValue)
+    if (center[3] < 190)
         throw new InvalidOperationException(
-            $"{Path.GetFileName(outputPath)}: center alpha was {center[3]}");
+            $"{Path.GetFileName(outputPath)}: glass surface alpha was only {center[3]}");
 
     var encoder = new PngBitmapEncoder();
     encoder.Frames.Add(BitmapFrame.Create(bitmap));
     using var stream = File.Create(outputPath);
     encoder.Save(stream);
+    host.Children.Clear();
 }
 
 sealed class FixedNowPlayingService(NowPlayingSnapshot snapshot)

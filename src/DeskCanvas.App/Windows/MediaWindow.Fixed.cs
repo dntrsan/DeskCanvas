@@ -69,6 +69,7 @@ public partial class MediaWindow : Window, IDisposable
         SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
         Closing += OnClosing;
+        DpiChanged += OnDpiChanged;
         PreviewMouseMove += Window_PreviewMouseMove;
         PreviewMouseLeftButtonUp += Window_PreviewMouseLeftButtonUp;
         item.PropertyChanged += Item_PropertyChanged;
@@ -76,6 +77,27 @@ public partial class MediaWindow : Window, IDisposable
     }
 
     internal CanvasItem Item => item;
+
+    internal void RefreshContent()
+    {
+        switch (content)
+        {
+            case ClockItemContent clock:
+                clock.Refresh();
+                break;
+            case NowPlayingItemContent playing:
+                playing.Refresh();
+                break;
+            case SystemMonitorItemContent monitor:
+                monitor.Refresh();
+                break;
+        }
+
+        if (handle != IntPtr.Zero)
+        {
+            desktop.Configure(handle, clickThrough: !editEnabled && !content.HasInteractiveControls);
+        }
+    }
 
     internal void SetEditEnabled(bool enabled)
     {
@@ -121,7 +143,14 @@ public partial class MediaWindow : Window, IDisposable
             return;
         }
         var side = CalculateSide();
-        desktop.PlaceAboveDesktop(handle, item.CenterX - side / 2, item.CenterY - side / 2, side, side);
+        var scale = VisualTreeHelper.GetDpi(this);
+        desktop.PlaceAboveDesktop(
+            handle,
+            (item.CenterX - side / 2) * scale.DpiScaleX,
+            (item.CenterY - side / 2) * scale.DpiScaleY,
+            side * scale.DpiScaleX,
+            side * scale.DpiScaleY);
+        GlassSurface.Refresh(content.View as Border);
     }
 
     public void Dispose()
@@ -133,6 +162,7 @@ public partial class MediaWindow : Window, IDisposable
         disposed = true;
         effectivelyVisible = false;
         content.SetActive(false);
+        DpiChanged -= OnDpiChanged;
         item.PropertyChanged -= Item_PropertyChanged;
         if (source is not null)
         {
@@ -179,6 +209,12 @@ public partial class MediaWindow : Window, IDisposable
                 Reposition();
             });
         }
+    }
+
+    private void OnDpiChanged(object sender, System.Windows.DpiChangedEventArgs e)
+    {
+        ApplyItem();
+        Reposition();
     }
 
     private void ApplyItem()
@@ -271,8 +307,9 @@ public partial class MediaWindow : Window, IDisposable
         }
 
         var current = PointToScreen(e.GetPosition(this));
-        var dx = current.X - startScreen.X;
-        var dy = current.Y - startScreen.Y;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var dx = (current.X - startScreen.X) / dpi.DpiScaleX;
+        var dy = (current.Y - startScreen.Y) / dpi.DpiScaleY;
         if (dragOperation == DragOperation.Move)
         {
             item.CenterX = startCenterX + dx;
@@ -304,7 +341,13 @@ public partial class MediaWindow : Window, IDisposable
         item.CenterY = startCenterY + ((width - startWidth) / 2 * Math.Sin(radians) + (height - startHeight) / 2 * Math.Cos(radians));
     }
 
-    private double PointerAngle(Point point) => Math.Atan2(point.Y - item.CenterY, point.X - item.CenterX) * 180 / Math.PI;
+    private double PointerAngle(Point screenPhysical)
+    {
+        var dpi = VisualTreeHelper.GetDpi(this);
+        return Math.Atan2(
+            screenPhysical.Y / dpi.DpiScaleY - item.CenterY,
+            screenPhysical.X / dpi.DpiScaleX - item.CenterX) * 180 / Math.PI;
+    }
 
     private void Window_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) => EndDrag(persist: true);
 
@@ -362,7 +405,9 @@ public partial class MediaWindow : Window, IDisposable
         var translatedY = point.Y - center.Y;
         var localX = translatedX * Math.Cos(radians) - translatedY * Math.Sin(radians);
         var localY = translatedX * Math.Sin(radians) + translatedY * Math.Cos(radians);
-        var hit = Math.Abs(localX) <= item.Width / 2 + 36 && Math.Abs(localY) <= item.Height / 2 + 38;
+        var extraX = ResizeHandle.Width / 2 + Math.Abs(ResizeHandle.Margin.Right);
+        var extraY = Math.Abs(RotationHandle.Margin.Top) + RotationHandle.Height / 2;
+        var hit = Math.Abs(localX) <= item.Width / 2 + extraX && Math.Abs(localY) <= item.Height / 2 + extraY;
         if (!hit)
         {
             handled = true;

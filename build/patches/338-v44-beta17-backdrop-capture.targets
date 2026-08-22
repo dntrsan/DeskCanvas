@@ -1,0 +1,27 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Version>1.2.0-beta.17</Version>
+    <VersionPrefix>1.2.0</VersionPrefix>
+    <VersionSuffix>beta.17</VersionSuffix>
+    <PackageVersion>1.2.0-beta.17</PackageVersion>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.17</FileVersion>
+    <InformationalVersion>1.2.0-beta.17</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DeskCanvasInstallerSource>$(MSBuildThisFileDirectory)..\..\installer\DeskCanvas.v44.Beta17.BackdropCapture.SingleFile.iss</DeskCanvasInstallerSource>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v43\App\ApplicationVersion.V43Beta16.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v44\App\ApplicationVersion.V44Beta17.cs" Link="ApplicationVersion.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v43\Tests\V43Beta16ContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v44\Tests\V44Beta17ContractTests.cs" Link="V44Beta17ContractTests.cs" />
+  </ItemGroup>
+</Project>

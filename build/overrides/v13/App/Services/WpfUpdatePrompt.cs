@@ -49,9 +49,11 @@ internal sealed class WpfUpdatePrompt(IReleasePageLauncher? launcher = null) : I
             if (application.Dispatcher.HasShutdownStarted)
                 return;
             var owner = application.Windows.OfType<MainWindow>().FirstOrDefault();
+            if (owner is null ||
+                !ForegroundSafetyPolicy.MayShowUpdateDialog(owner.IsVisible, owner.IsActive))
+                return;
             var dialog = new UpdatePromptWindow(release, releasePageLauncher);
-            if (owner is { IsVisible: true })
-                dialog.Owner = owner;
+            dialog.Owner = owner;
             dialog.ShowDialog();
         });
     }

@@ -7,7 +7,16 @@ namespace DeskCanvas.App.Services;
 
 internal sealed record SystemMetricsSnapshot(MetricValue Cpu, MetricValue Memory, MetricValue Gpu, MetricValue Download, MetricValue Upload)
 {
-    internal static SystemMetricsSnapshot Loading { get; } = new(MetricValue.Loading(), MetricValue.Loading(), MetricValue.Loading(), MetricValue.Loading(), MetricValue.Loading());
+    internal MetricValue Vram { get; init; } = MetricValue.Loading();
+    internal MetricValue Clock { get; init; } = MetricValue.Loading();
+    internal IReadOnlyList<double> CpuHistory { get; init; } = [];
+    internal IReadOnlyList<double> GpuHistory { get; init; } = [];
+    internal IReadOnlyList<double> VramHistory { get; init; } = [];
+    internal IReadOnlyList<double> MemoryHistory { get; init; } = [];
+    internal IReadOnlyList<double> DownloadHistory { get; init; } = [];
+
+    internal static SystemMetricsSnapshot Loading { get; } = new(
+        MetricValue.Loading(), MetricValue.Loading(), MetricValue.Loading(), MetricValue.Loading(), MetricValue.Loading());
 }
 
 internal interface ISystemMetricsService : IDisposable
@@ -23,11 +32,17 @@ internal sealed class SystemMetricsService : ISystemMetricsService
     private readonly object sync = new();
     private System.Threading.Timer? timer;
     private readonly GpuMetricsReader gpuReader = new();
+    private readonly GpuMemoryReader vramReader = new();
+    private readonly MetricHistory cpuHistory = new();
+    private readonly MetricHistory gpuHistory = new();
+    private readonly MetricHistory vramHistory = new();
+    private readonly MetricHistory memoryHistory = new();
+    private readonly MetricHistory downloadHistory = new();
     private int consumers;
     private int sampling;
     private bool disposed;
     private (ulong Idle, ulong Kernel, ulong User, DateTimeOffset At)? cpuPrevious;
-    private (long Received, long Sent, DateTimeOffset At)? networkPrevious;
+    private Dictionary<string, (long Received, long Sent, DateTimeOffset At)> networkPrevious = [];
 
     public SystemMetricsSnapshot Snapshot { get; private set; } = SystemMetricsSnapshot.Loading;
     public event EventHandler<SystemMetricsSnapshot>? SnapshotChanged;
@@ -40,7 +55,12 @@ internal sealed class SystemMetricsService : ISystemMetricsService
             lock (sync)
             {
                 cpuPrevious = null;
-                networkPrevious = null;
+                networkPrevious = [];
+                cpuHistory.Clear();
+                gpuHistory.Clear();
+                vramHistory.Clear();
+                memoryHistory.Clear();
+                downloadHistory.Clear();
                 Snapshot = SystemMetricsSnapshot.Loading;
                 timer ??= new System.Threading.Timer(static state => ((SystemMetricsService)state!).Sample(), this, Timeout.Infinite, Timeout.Infinite);
                 timer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(1));
@@ -56,7 +76,12 @@ internal sealed class SystemMetricsService : ISystemMetricsService
         {
             timer?.Change(Timeout.Infinite, Timeout.Infinite);
             cpuPrevious = null;
-            networkPrevious = null;
+            networkPrevious = [];
+            cpuHistory.Clear();
+            gpuHistory.Clear();
+            vramHistory.Clear();
+            memoryHistory.Clear();
+            downloadHistory.Clear();
         }
     }
 
@@ -70,11 +95,32 @@ internal sealed class SystemMetricsService : ISystemMetricsService
             var memory = ReadMemory();
             var (down, up) = ReadNetwork(now);
             var gpu = gpuReader.Read();
-            if (!disposed && Volatile.Read(ref consumers) > 0) Publish(new SystemMetricsSnapshot(cpu, memory, gpu, down, up));
+            var vram = vramReader.Read();
+            var clock = ProcessorClock.Read();
+            SystemMetricsSnapshot snapshot;
+            lock (sync)
+            {
+                cpuHistory.Push(cpu);
+                gpuHistory.Push(gpu);
+                vramHistory.Push(vram);
+                memoryHistory.Push(memory);
+                downloadHistory.Push(down);
+                snapshot = new SystemMetricsSnapshot(cpu, memory, gpu, down, up)
+                {
+                    Vram = vram,
+                    Clock = clock,
+                    CpuHistory = cpuHistory.Snapshot(),
+                    GpuHistory = gpuHistory.Snapshot(),
+                    VramHistory = vramHistory.Snapshot(),
+                    MemoryHistory = memoryHistory.Snapshot(),
+                    DownloadHistory = downloadHistory.Snapshot()
+                };
+            }
+            if (!disposed && Volatile.Read(ref consumers) > 0) Publish(snapshot);
         }
-        catch (Exception) when (!disposed)
+        catch (Exception)
         {
-            if (Volatile.Read(ref consumers) > 0) Publish(SystemMetricsSnapshot.Loading);
+            if (!disposed && Volatile.Read(ref consumers) > 0) Publish(SystemMetricsSnapshot.Loading);
         }
         finally { Volatile.Write(ref sampling, 0); }
     }
@@ -83,12 +129,16 @@ internal sealed class SystemMetricsService : ISystemMetricsService
     {
         if (!GetSystemTimes(out var idle, out var kernel, out var user))
         {
-            cpuPrevious = null;
+            lock (sync) cpuPrevious = null;
             return MetricValue.Unavailable("--");
         }
         var current = (ToUInt64(idle), ToUInt64(kernel), ToUInt64(user), now);
-        var result = SystemMetricMath.Cpu(current.Item1, current.Item2, current.Item3, cpuPrevious, now);
-        cpuPrevious = current;
+        MetricValue result;
+        lock (sync)
+        {
+            result = SystemMetricMath.Cpu(current.Item1, current.Item2, current.Item3, cpuPrevious, now);
+            cpuPrevious = current;
+        }
         return result;
     }
 
@@ -103,18 +153,40 @@ internal sealed class SystemMetricsService : ISystemMetricsService
 
     private (MetricValue Down, MetricValue Up) ReadNetwork(DateTimeOffset now)
     {
-        if (!PhysicalNetworkReader.TryReadTotals(out var received, out var sent))
+        if (!PhysicalNetworkReader.TryReadAdapters(out var adapters))
         {
-            networkPrevious = null;
+            lock (sync) networkPrevious = [];
             return (MetricValue.Unavailable("--"), MetricValue.Unavailable("--"));
         }
-        var previous = networkPrevious;
-        networkPrevious = (received, sent, now);
-        if (previous is null) return (MetricValue.Loading(), MetricValue.Loading());
+
+        long downDelta = 0, upDelta = 0;
+        var elapsed = TimeSpan.Zero;
+        var comparable = false;
+        lock (sync)
+        {
+            foreach (var adapter in adapters)
+            {
+                if (networkPrevious.TryGetValue(adapter.Id, out var previous))
+                {
+                    var slice = now - previous.At;
+                    if (slice <= TimeSpan.Zero || slice > TimeSpan.FromSeconds(10)) continue;
+                    if (adapter.Received < previous.Received || adapter.Sent < previous.Sent) continue;
+                    downDelta = SaturatingAdd(downDelta, adapter.Received - previous.Received);
+                    upDelta = SaturatingAdd(upDelta, adapter.Sent - previous.Sent);
+                    if (slice > elapsed) elapsed = slice;
+                    comparable = true;
+                }
+            }
+            networkPrevious = adapters.ToDictionary(adapter => adapter.Id, adapter => (adapter.Received, adapter.Sent, now));
+        }
+        if (!comparable) return (MetricValue.Loading(), MetricValue.Loading());
         return (
-            SystemMetricMath.Rate(received, previous.Value.Received, now - previous.Value.At, "秒"),
-            SystemMetricMath.Rate(sent, previous.Value.Sent, now - previous.Value.At, "秒"));
+            SystemMetricMath.Rate(downDelta, 0, elapsed, "秒"),
+            SystemMetricMath.Rate(upDelta, 0, elapsed, "秒"));
     }
+
+    private static long SaturatingAdd(long current, long value) =>
+        value >= long.MaxValue - current ? long.MaxValue : current + value;
 
     private void Publish(SystemMetricsSnapshot snapshot)
     {
@@ -127,9 +199,15 @@ internal sealed class SystemMetricsService : ISystemMetricsService
         if (disposed) return;
         disposed = true;
         Interlocked.Exchange(ref consumers, 0);
-        timer?.Dispose();
-        timer = null;
+        if (timer is not null)
+        {
+            using var finished = new ManualResetEvent(false);
+            timer.Dispose(finished);
+            finished.WaitOne(TimeSpan.FromSeconds(1));
+            timer = null;
+        }
         gpuReader.Dispose();
+        vramReader.Dispose();
     }
 
     private static string FormatBytes(ulong bytes)
@@ -187,7 +265,7 @@ internal sealed class GpuMetricsReader : IDisposable
 
                 uint count = 0, bufferSize = 0;
                 var status = PdhGetFormattedCounterArray(counter, PdhFmtDouble, ref bufferSize, ref count, IntPtr.Zero);
-                if (status == PdhNoData || (status == 0 && count == 0)) return MetricValue.From(0, "0%");
+                if (status == PdhNoData || (status == 0 && count == 0)) return MetricValue.Unavailable("--");
                 if (status != PdhMoreData || bufferSize == 0)
                 {
                     Reset();
@@ -198,7 +276,7 @@ internal sealed class GpuMetricsReader : IDisposable
                 try
                 {
                     status = PdhGetFormattedCounterArray(counter, PdhFmtDouble, ref bufferSize, ref count, buffer);
-                    if (status == PdhNoData || count == 0) return MetricValue.From(0, "0%");
+                    if (status == PdhNoData || count == 0) return MetricValue.Unavailable("--");
                     if (status != 0)
                     {
                         Reset();
@@ -224,7 +302,12 @@ internal sealed class GpuMetricsReader : IDisposable
     private MetricValue? Initialize()
     {
         var status = PdhOpenQuery(null, IntPtr.Zero, out query);
-        if (status != 0) { Reset(); return MetricValue.Loading(); }
+        if (status != 0)
+        {
+            query = IntPtr.Zero;
+            counter = IntPtr.Zero;
+            return MetricValue.Loading();
+        }
         status = PdhAddEnglishCounter(query, "\\GPU Engine(*)\\Utilization Percentage", IntPtr.Zero, out counter);
         if (status != 0)
         {
@@ -273,6 +356,217 @@ internal sealed class GpuMetricsReader : IDisposable
     [DllImport("pdh.dll", CharSet = CharSet.Unicode)] private static extern uint PdhGetFormattedCounterArray(IntPtr counter, uint format, ref uint bufferSize, ref uint itemCount, IntPtr itemBuffer);
     [DllImport("pdh.dll")] private static extern uint PdhCloseQuery(IntPtr query);
 }
+
+internal sealed class GpuMemoryReader : IDisposable
+{
+    private const string DisplayClassPath = @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
+    private readonly object sync = new();
+    private IntPtr query;
+    private IntPtr counter;
+    private bool primed;
+    private bool disposed;
+    private ulong cachedTotal;
+    private DateTimeOffset totalReadAt;
+
+    internal MetricValue Read()
+    {
+        lock (sync)
+        {
+            if (disposed) return MetricValue.Unavailable("--");
+            try
+            {
+                if (query == IntPtr.Zero)
+                {
+                    var initialization = Initialize();
+                    if (initialization is not null) return initialization.Value;
+                    return MetricValue.Loading();
+                }
+
+                if (PdhCollectQueryData(query) != 0)
+                {
+                    Reset();
+                    return MetricValue.Loading();
+                }
+                if (!primed)
+                {
+                    primed = true;
+                    return MetricValue.Loading();
+                }
+
+                uint count = 0, bufferSize = 0;
+                var status = PdhGetFormattedCounterArray(counter, PdhFmtDouble, ref bufferSize, ref count, IntPtr.Zero);
+                if (status == PdhNoData || (status == 0 && count == 0)) return MetricValue.Unavailable("--");
+                if (status != PdhMoreData || bufferSize == 0)
+                {
+                    Reset();
+                    return MetricValue.Loading();
+                }
+
+                var buffer = Marshal.AllocHGlobal((int)bufferSize);
+                try
+                {
+                    status = PdhGetFormattedCounterArray(counter, PdhFmtDouble, ref bufferSize, ref count, buffer);
+                    if (status == PdhNoData || count == 0) return MetricValue.Unavailable("--");
+                    if (status != 0)
+                    {
+                        Reset();
+                        return MetricValue.Loading();
+                    }
+                    var size = Marshal.SizeOf<PdhFmtCounterValueItem>();
+                    double used = 0;
+                    var found = false;
+                    for (var index = 0; index < count; index++)
+                    {
+                        var item = Marshal.PtrToStructure<PdhFmtCounterValueItem>(buffer + index * size);
+                        if (item.Value.CStatus is not (PdhValidData or PdhNewData) || !double.IsFinite(item.Value.DoubleValue)) continue;
+                        used += Math.Max(0, item.Value.DoubleValue);
+                        found = true;
+                    }
+                    if (!found) return MetricValue.Unavailable("--");
+                    return GpuMemoryMath.FromBytes(used, ReadDedicatedBudget());
+                }
+                finally { Marshal.FreeHGlobal(buffer); }
+            }
+            catch (DllNotFoundException) { Reset(); return MetricValue.Unavailable("--"); }
+            catch (EntryPointNotFoundException) { Reset(); return MetricValue.Unavailable("--"); }
+            catch (Exception) { Reset(); return MetricValue.Loading(); }
+        }
+    }
+
+    private MetricValue? Initialize()
+    {
+        var status = PdhOpenQuery(null, IntPtr.Zero, out query);
+        if (status != 0)
+        {
+            query = IntPtr.Zero;
+            counter = IntPtr.Zero;
+            return MetricValue.Loading();
+        }
+        status = PdhAddEnglishCounter(query, "\\GPU Adapter Memory(*)\\Dedicated Usage", IntPtr.Zero, out counter);
+        if (status != 0)
+        {
+            Reset();
+            return status is PdhNoObject or PdhNoCounter ? MetricValue.Unavailable("--") : MetricValue.Loading();
+        }
+        if (PdhCollectQueryData(query) != 0)
+        {
+            Reset();
+            return MetricValue.Loading();
+        }
+        primed = true;
+        return null;
+    }
+
+    private ulong ReadDedicatedBudget()
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (cachedTotal > 0 && now - totalReadAt < TimeSpan.FromSeconds(30)) return cachedTotal;
+        ulong max = 0;
+        try
+        {
+            using var displayClass = Registry.LocalMachine.OpenSubKey(DisplayClassPath, writable: false);
+            if (displayClass is not null)
+            {
+                foreach (var childName in displayClass.GetSubKeyNames())
+                {
+                    if (childName.Length == 0 || !childName.All(char.IsDigit)) continue;
+                    try
+                    {
+                        using var adapter = displayClass.OpenSubKey(childName, writable: false);
+                        var raw = adapter?.GetValue("HardwareInformation.qwMemorySize");
+                        var bytes = raw switch
+                        {
+                            long signed => signed > 0 ? (ulong)signed : 0,
+                            ulong unsigned => unsigned,
+                            int signed => signed > 0 ? (ulong)signed : 0,
+                            byte[] blob when blob.Length >= 8 => BitConverter.ToUInt64(blob, 0),
+                            _ => 0UL
+                        };
+                        if (bytes > max) max = bytes;
+                    }
+                    catch (Exception error) when (error is UnauthorizedAccessException or System.Security.SecurityException)
+                    {
+                    }
+                }
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+        }
+
+        cachedTotal = max;
+        totalReadAt = now;
+        return cachedTotal;
+    }
+
+    private void Reset()
+    {
+        if (query != IntPtr.Zero) PdhCloseQuery(query);
+        query = IntPtr.Zero;
+        counter = IntPtr.Zero;
+        primed = false;
+    }
+
+    public void Dispose()
+    {
+        lock (sync)
+        {
+            if (disposed) return;
+            disposed = true;
+            Reset();
+        }
+    }
+
+    private const uint PdhFmtDouble = 0x00000200;
+    private const uint PdhMoreData = 0x800007D2;
+    private const uint PdhNoData = 0x800007D5;
+    private const uint PdhNoObject = 0xC0000BB8;
+    private const uint PdhNoCounter = 0xC0000BB9;
+    private const uint PdhValidData = 0x00000000;
+    private const uint PdhNewData = 0x00000001;
+    [StructLayout(LayoutKind.Sequential)] private struct PdhFmtCounterValueItem { [MarshalAs(UnmanagedType.LPWStr)] public string? Name; public PdhFmtCounterValue Value; }
+    [StructLayout(LayoutKind.Explicit)] private struct PdhFmtCounterValue { [FieldOffset(0)] public uint CStatus; [FieldOffset(8)] public double DoubleValue; }
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)] private static extern uint PdhOpenQuery(string? source, IntPtr userData, out IntPtr query);
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)] private static extern uint PdhAddEnglishCounter(IntPtr query, string path, IntPtr userData, out IntPtr counter);
+    [DllImport("pdh.dll")] private static extern uint PdhCollectQueryData(IntPtr query);
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)] private static extern uint PdhGetFormattedCounterArray(IntPtr counter, uint format, ref uint bufferSize, ref uint itemCount, IntPtr itemBuffer);
+    [DllImport("pdh.dll")] private static extern uint PdhCloseQuery(IntPtr query);
+}
+
+internal static class ProcessorClock
+{
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Info
+    {
+        public uint N, Max, Current, Limit, MaxIdle, CurrentIdle;
+    }
+
+    [DllImport("powrprof.dll")]
+    private static extern uint CallNtPowerInformation(int level, IntPtr input, int inputLength, [Out] Info[] output, int outputLength);
+
+    internal static MetricValue Read()
+    {
+        try
+        {
+            var data = new Info[Math.Max(1, Environment.ProcessorCount)];
+            if (CallNtPowerInformation(11, IntPtr.Zero, 0, data, Marshal.SizeOf<Info>() * data.Length) != 0)
+            {
+                return MetricValue.Unavailable("-- GHz");
+            }
+
+            var text = SystemMetricMath.FormatProcessorClock(data.Select(sample => sample.Current));
+            if (text == "-- GHz") return MetricValue.Unavailable(text);
+            var values = data.Where(sample => sample.Current > 0).Select(sample => sample.Current / 1000d).ToArray();
+            var ghz = values.Length == 0 ? 0 : values.Average();
+            return MetricValue.From(ghz, text);
+        }
+        catch (Exception)
+        {
+            return MetricValue.Unavailable("-- GHz");
+        }
+    }
+}
+
 internal static class PhysicalNetworkReader
 {
     private const uint NcfVirtual = 0x1;
@@ -282,33 +576,49 @@ internal static class PhysicalNetworkReader
     private static HashSet<Guid> physicalAdapterIds = [];
     private static DateTimeOffset adapterIdsReadAt;
 
-    internal static bool TryReadTotals(out long received, out long sent)
+    internal static bool TryReadAdapters(out List<(string Id, long Received, long Sent)> adapters)
     {
-        received = 0;
-        sent = 0;
+        adapters = [];
         try
         {
             var physicalIds = GetPhysicalAdapterIds();
             if (physicalIds.Count == 0) return false;
-            var samples = new List<NetworkCounterSample>();
             foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if (!Guid.TryParse(adapter.Id, out var id) || !physicalIds.Contains(id)) continue;
-                var isUp = adapter.OperationalStatus == OperationalStatus.Up;
-                var statistics = adapter.GetIPv4Statistics();
-                samples.Add(new NetworkCounterSample(
-                    true,
-                    isUp,
-                    (uint)adapter.NetworkInterfaceType,
-                    (ulong)Math.Max(0, statistics.BytesReceived),
-                    (ulong)Math.Max(0, statistics.BytesSent)));
+                if (adapter.OperationalStatus != OperationalStatus.Up) continue;
+                if ((uint)adapter.NetworkInterfaceType is 24 or 131) continue;
+                IPv4InterfaceStatistics? v4 = null;
+                IPInterfaceStatistics? ip = null;
+                try { ip = adapter.GetIPStatistics(); }
+                catch (NetworkInformationException)
+                {
+                    try { v4 = adapter.GetIPv4Statistics(); }
+                    catch (NetworkInformationException) { continue; }
+                }
+                var received = ip?.BytesReceived ?? v4?.BytesReceived ?? 0;
+                var sent = ip?.BytesSent ?? v4?.BytesSent ?? 0;
+                adapters.Add((adapter.Id, Math.Max(0, received), Math.Max(0, sent)));
             }
-            return SystemMetricMath.TrySumPhysicalNetwork(samples, out received, out sent);
+            return adapters.Count > 0;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or NetworkInformationException or System.Security.SecurityException)
         {
             return false;
         }
+    }
+
+    internal static bool TryReadTotals(out long received, out long sent)
+    {
+        received = 0;
+        sent = 0;
+        if (!TryReadAdapters(out var adapters)) return false;
+        foreach (var adapter in adapters)
+        {
+            received = adapter.Received >= long.MaxValue - received ? long.MaxValue : received + adapter.Received;
+            sent = adapter.Sent >= long.MaxValue - sent ? long.MaxValue : sent + adapter.Sent;
+        }
+        return true;
     }
 
     private static HashSet<Guid> GetPhysicalAdapterIds()

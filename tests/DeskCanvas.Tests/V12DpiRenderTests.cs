@@ -47,8 +47,7 @@ internal static class V12DpiRenderTests
             true,
             true,
             true,
-            false,
-            DateTimeOffset.UtcNow));
+            false));
         var metricsService = new FixedMetricsService(new SystemMetricsSnapshot(
             MetricValue.From(65, "65%"),
             MetricValue.From(72, "72%  11.5 GB / 16 GB"),
@@ -62,8 +61,7 @@ internal static class V12DpiRenderTests
                 ContentKind = CanvasContentKinds.NowPlaying,
                 Width = 360,
                 Height = 220,
-                Opacity = 1,
-                Theme = WidgetThemeKind.Rose
+                Opacity = 1
             },
             nowService);
         var system = new SystemMonitorItemContent(
@@ -72,8 +70,7 @@ internal static class V12DpiRenderTests
                 ContentKind = CanvasContentKinds.SystemMonitor,
                 Width = 300,
                 Height = 180,
-                Opacity = 1,
-                Theme = WidgetThemeKind.Ocean
+                Opacity = 1
             },
             metricsService);
         var clock = new ClockItemContent(
@@ -83,7 +80,6 @@ internal static class V12DpiRenderTests
                 Width = 300,
                 Height = 150,
                 Opacity = 1,
-                Theme = WidgetThemeKind.Mint,
                 Clock = new ClockOptions
                 {
                     Style = ClockStyle.Split,

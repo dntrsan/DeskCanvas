@@ -22,6 +22,7 @@ internal sealed class DeskCanvasController : IDisposable
     private readonly DispatcherTimer desktopTimer;
     private readonly INowPlayingService nowPlaying = new NowPlayingService();
     private readonly ISystemMetricsService systemMetrics = new SystemMetricsService();
+    private readonly ICodexUsageService codexUsage;
     private readonly bool previewMode;
     private TrayService? tray;
     private HotkeyManager? hotkey;
@@ -35,13 +36,17 @@ internal sealed class DeskCanvasController : IDisposable
             Environment.GetEnvironmentVariable("DESKCANVAS_PREVIEW_MODE"),
             "1",
             StringComparison.Ordinal);
+        codexUsage = new CodexUsageService(previewMode);
         var root = ResolveDataRoot();
         repository = new LayoutRepository(root);
         mediaStore = new MediaStore(root);
         layout = repository.Load();
         Items = new ObservableCollection<CanvasItem>(layout.Items.OrderBy(item => item.ZIndex));
         layout.Items = Items.ToList();
-        desktopTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        desktopTimer = new DispatcherTimer
+        {
+            Interval = BackgroundLoadPolicy.DesktopHostConnectedPollInterval
+        };
         desktopTimer.Tick += DesktopTimer_Tick;
     }
 
@@ -64,7 +69,7 @@ internal sealed class DeskCanvasController : IDisposable
             TryCreateDesktopItemWindow(item);
         }
         mainWindow = new MainWindow(this);
-        if (!previewMode)
+        if (ShouldCreateDesktopIntegrations(previewMode))
         {
             tray = new TrayService(
                 OpenMainWindow,
@@ -85,16 +90,23 @@ internal sealed class DeskCanvasController : IDisposable
         ApplyEditMode();
         ApplyVisibility();
         ReapplyZOrder();
-        if (!previewMode)
+        if (ShouldCreateDesktopIntegrations(previewMode))
         {
             lastDesktopHost = desktop.CurrentDesktopHost;
+            desktopTimer.Interval = BackgroundLoadPolicy.DesktopHostPollInterval(lastDesktopHost != IntPtr.Zero);
             desktopTimer.Start();
         }
         repository.Save(layout);
-        if (Items.Count == 0 || previewMode) mainWindow.OpenAndActivate();
+        var suppressPreviewUi = string.Equals(
+            Environment.GetEnvironmentVariable("DESKCANVAS_PREVIEW_SUPPRESS_STARTUP_UI"),
+            "1",
+            StringComparison.Ordinal);
+        if (ForegroundSafetyPolicy.ShouldOpenMainWindowAtStartup(previewMode, suppressPreviewUi)) mainWindow.OpenAndActivate();
     }
 
     internal void OpenMainWindow() => mainWindow?.OpenAndActivate();
+
+    internal static bool ShouldCreateDesktopIntegrations(bool preview) => !preview;
 
     internal void AddFromDialog()
     {
@@ -170,7 +182,7 @@ internal sealed class DeskCanvasController : IDisposable
 
     internal void OpenBuiltInPicker()
     {
-        var picker = new BuiltInContentPicker(mainWindow, nowPlaying, systemMetrics);
+        var picker = new BuiltInContentPicker(mainWindow, nowPlaying, systemMetrics, codexUsage);
         if (picker.ShowDialog() != true) return;
         if (picker.SelectedKind == CanvasContentKinds.Clock)
             AddClock(picker.ClockOptions, picker.Theme);
@@ -178,6 +190,8 @@ internal sealed class DeskCanvasController : IDisposable
             AddNowPlaying(picker.NowPlayingOptions, picker.Theme);
         else if (picker.SelectedKind == CanvasContentKinds.SystemMonitor)
             AddSystemMonitor(picker.SystemMonitorOptions, picker.Theme);
+        else if (picker.SelectedKind == CanvasContentKinds.CodexUsage)
+            AddCodexUsage();
     }
 
     internal void AddClock(ClockOptions options, WidgetThemeKind theme = WidgetThemeKind.Auto) =>
@@ -219,6 +233,14 @@ internal sealed class DeskCanvasController : IDisposable
                 item.SystemMonitor = options.Clone();
                 item.Theme = NormalizeTheme(theme);
             });
+
+    internal void AddCodexUsage() =>
+        AddBuiltIn(
+            "Codexリミット",
+            CanvasContentKinds.CodexUsage,
+            360,
+            160,
+            _ => { });
 
     private void AddBuiltIn(
         string name,
@@ -314,6 +336,17 @@ internal sealed class DeskCanvasController : IDisposable
         ReplaceBuiltInWindow(item);
         Save();
         SetStatus($"「{item.DisplayName}」のテーマを{item.Theme}へ変更しました");
+    }
+
+    internal void SetSurfaceStyle(CanvasItem item, WidgetSurfaceStyle style)
+    {
+        if (item.ContentKind is not (CanvasContentKinds.Clock or CanvasContentKinds.NowPlaying)) return;
+        var normalized = Enum.IsDefined(style) ? style : WidgetSurfaceStyle.Standard;
+        if (item.ContentKind == CanvasContentKinds.Clock) item.Clock.SurfaceStyle = normalized;
+        else item.NowPlaying.SurfaceStyle = normalized;
+        ReplaceBuiltInWindow(item);
+        Save();
+        SetStatus($"「{item.DisplayName}」のカードスタイルを{(normalized == WidgetSurfaceStyle.MinimalGlass ? "ミニマルガラス" : "標準")}へ変更しました");
     }
 
     internal void SetItemLock(CanvasItem item, bool isLocked)
@@ -422,6 +455,7 @@ internal sealed class DeskCanvasController : IDisposable
         mediaWindows.Clear();
         nowPlaying.Dispose();
         systemMetrics.Dispose();
+        codexUsage.Dispose();
     }
 
     private void ReplaceBuiltInWindow(CanvasItem item)
@@ -470,7 +504,8 @@ internal sealed class DeskCanvasController : IDisposable
             if (item.ContentKind is
                 CanvasContentKinds.Clock or
                 CanvasContentKinds.NowPlaying or
-                CanvasContentKinds.SystemMonitor)
+                CanvasContentKinds.SystemMonitor or
+                CanvasContentKinds.CodexUsage)
             {
                 content = CreateBuiltInContent(item);
             }
@@ -505,6 +540,7 @@ internal sealed class DeskCanvasController : IDisposable
             CanvasContentKinds.Clock => new ClockItemContent(item),
             CanvasContentKinds.NowPlaying => new NowPlayingItemContent(item, nowPlaying),
             CanvasContentKinds.SystemMonitor => new SystemMonitorItemContent(item, systemMetrics),
+            CanvasContentKinds.CodexUsage => new CodexUsageItemContent(codexUsage),
             _ => throw new NotSupportedException(item.ContentKind)
         };
 
@@ -540,10 +576,11 @@ internal sealed class DeskCanvasController : IDisposable
     private void DesktopTimer_Tick(object? sender, EventArgs e)
     {
         var current = desktop.CurrentDesktopHost;
-        if (current == IntPtr.Zero || current == lastDesktopHost) return;
+        desktopTimer.Interval = BackgroundLoadPolicy.DesktopHostPollInterval(current != IntPtr.Zero);
+        if (current == lastDesktopHost) return;
         lastDesktopHost = current;
         ReapplyZOrder();
-        SetStatus("Explorerへ再接続しました");
+        if (current != IntPtr.Zero) SetStatus("Explorerへ再接続しました");
     }
 
     private int NextZIndex() =>

@@ -25,9 +25,23 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="App.xaml.cs" />
-    <Compile Remove="GlobalAliases.cs" />
     <Compile Remove="Windows\MainWindow.xaml.cs" />
     <Compile Remove="Windows\MediaWindow.xaml.cs" />
+    <!-- Superseded global-using files. A global using alias may be declared only once per
+         compilation, and these declared Brush four times and Button three times between
+         them (CS1537, whole assembly fails). Their union now lives in GlobalAliases.Fixed.cs. -->
+    <Compile Remove="GlobalAliases.cs" />
+    <Compile Remove="MoreGlobalUsings.cs" />
+    <Compile Remove="V12AcceptedAliases.cs" />
+    <Compile Remove="V12AcceptedColorAlias.cs" />
+    <Compile Remove="V12ControllerAliasCompatibility.cs" />
+    <Compile Remove="V12LiveAliases.cs" />
+    <Compile Remove="V13UpdateAliases.cs" />
+    <Compile Remove="V13UpdateAliases.Fixed.cs" />
+    <Compile Remove="V13UpdateAliases.Fixed2.cs" />
+    <!-- Per-widget theme picker: depends on CanvasItem.Theme / WidgetThemeKind, which
+         do not exist in DeskCanvas.Core yet. Excluded until the model lands. -->
+    <Compile Remove="Windows\MainWindow.ThemeEditor.cs" />
     <Compile Remove="Services\DesktopWindowService.cs" />
     <Compile Remove="Media\MediaDecoder.cs" />
   </ItemGroup>

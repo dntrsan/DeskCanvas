@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup>
+    <DeskCanvasInstallerSource>$(MSBuildThisFileDirectory)..\..\installer\DeskCanvas.v23.Beta2.SingleFile.iss</DeskCanvasInstallerSource>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,28 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Core'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\Core\LegacyLayoutImportService.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\Core\LegacyLayoutImportService.Fixed.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\Core\LegacyLayoutImportService.Final.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\Core\LegacyLayoutImportService.Final2.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\Core\LegacyLayoutImportService.Final2.cs" Link="LegacyLayoutImportService.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildProjectDirectory)\Services\StartupService.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportUi.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportBootstrapAndController.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportMainWindow.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportMainWindow.Fixed.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\App\StartupService.SelfHeal.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\App\StartupService.SelfHeal.Final.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportBootstrapAndController.cs" Link="LegacyImportBootstrapAndController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportMainWindow.Fixed.cs" Link="LegacyImportMainWindow.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\App\StartupService.SelfHeal.Final.cs" Link="Services\StartupService.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\Tests\V29LegacyImportContractTests.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\Tests\V29LegacyImportContractTests.Final.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\Tests\V29StartupSelfHealContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\Tests\V29LegacyImportContractTests.Final.cs" Link="V29LegacyImportContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\Tests\V29StartupSelfHealContractTests.cs" Link="V29StartupSelfHealContractTests.cs" />
+  </ItemGroup>
+</Project>

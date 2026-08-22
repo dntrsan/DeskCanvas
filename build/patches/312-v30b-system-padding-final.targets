@@ -1,0 +1,1 @@
+<Project><ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'"><Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30b\App\V30SystemReviewPolish.Final.cs"/><Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30b\App\V30SystemReviewPolish.Final2.cs" Link="V30SystemReviewPolish.cs"/></ItemGroup></Project>

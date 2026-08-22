@@ -11,7 +11,7 @@ internal sealed class UpdatePromptCoordinator(UpdateCheckService updates, IUpdat
             prompt.Show(new ReleaseInfo(preview, new Uri("https://github.com/dntrsan/DeskCanvas/releases")));
             return;
         }
-        var release = await updates.CheckOnceAsync(cancellationToken).ConfigureAwait(false);
+        var release = await updates.CheckOnceAsync(cancellationToken).ConfigureAwait(true);
         if (release is not null) prompt.Show(release);
     }
 }

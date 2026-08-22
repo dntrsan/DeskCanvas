@@ -12,9 +12,10 @@ public static class CanvasContentKinds
     public const string Clock = "clock";
     public const string NowPlaying = "nowPlaying";
     public const string SystemMonitor = "systemMonitor";
+    public const string CodexUsage = "codexUsage";
 
-    public static bool IsSupported(string? kind) => kind is Image or Gif or Clock or NowPlaying or SystemMonitor;
-    public static bool IsImplemented(string? kind) => kind is Image or Gif or Clock or NowPlaying or SystemMonitor;
+    public static bool IsSupported(string? kind) => kind is Image or Gif or Clock or NowPlaying or SystemMonitor or CodexUsage;
+    public static bool IsImplemented(string? kind) => IsSupported(kind);
 }
 
 public static class DecorationModes
@@ -113,6 +114,7 @@ public sealed class CanvasItem : INotifyPropertyChanged
     private string displayName = "";
     private string storedFileName = "";
     private string contentKind = CanvasContentKinds.Image;
+    private bool contentKindAssigned;
     private string decorationMode = DecorationModes.None;
     private string monitorDevice = "";
     private double centerX;
@@ -129,11 +131,28 @@ public sealed class CanvasItem : INotifyPropertyChanged
     public Guid Id { get; set; } = Guid.NewGuid();
     public string DisplayName { get => displayName; set => Set(ref displayName, value ?? ""); }
     public string StoredFileName { get => storedFileName; set => Set(ref storedFileName, value ?? ""); }
-    public string ContentKind { get => contentKind; set => Set(ref contentKind, value ?? CanvasContentKinds.Image); }
+    public string ContentKind
+    {
+        get => contentKind;
+        set
+        {
+            contentKindAssigned = true;
+            Set(ref contentKind, value ?? CanvasContentKinds.Image);
+        }
+    }
 
     // v1 compatibility: reads mediaKind but v2 persists contentKind.
+    // Ignored when contentKind already appeared in the same document, so property
+    // order cannot silently overwrite a v2 value with a leftover v1 key.
     [JsonPropertyName("mediaKind")]
-    public string LegacyMediaKind { set => ContentKind = value; }
+    public string LegacyMediaKind
+    {
+        set
+        {
+            if (contentKindAssigned || string.IsNullOrWhiteSpace(value)) return;
+            ContentKind = value;
+        }
+    }
 
     [JsonIgnore]
     public string MediaKind { get => ContentKind; set => ContentKind = value; }
@@ -163,6 +182,7 @@ public sealed class CanvasItem : INotifyPropertyChanged
         CanvasContentKinds.Clock => "時計",
         CanvasContentKinds.NowPlaying => "再生中",
         CanvasContentKinds.SystemMonitor => "システムモニター",
+        CanvasContentKinds.CodexUsage => "Codexリミット",
         _ => "画像"
     };
 

@@ -6,13 +6,16 @@ namespace DeskCanvas.App.Services;
 internal sealed class TrayService : IDisposable
 {
     private readonly NotifyIcon icon;
+    private readonly ContextMenuStrip menu;
     private readonly ToolStripMenuItem editItem;
     private readonly ToolStripMenuItem hideAllItem;
     private readonly Icon? ownedIcon;
+    private readonly EventHandler openHandler;
+    private bool disposed;
 
     internal TrayService(Action open, Action add, Action addBuiltIn, Action toggleEdit, Action toggleHideAll, Action exit)
     {
-        var menu = new ContextMenuStrip();
+        menu = new ContextMenuStrip();
         menu.Items.Add("DeskCanvasを開く", null, (_, _) => open());
         menu.Items.Add("画像 / GIFを追加", null, (_, _) => add());
         menu.Items.Add("標準コンテンツを追加", null, (_, _) => addBuiltIn());
@@ -31,26 +34,35 @@ internal sealed class TrayService : IDisposable
             ContextMenuStrip = menu,
             Visible = true
         };
-        icon.DoubleClick += (_, _) => open();
+        openHandler = (_, _) => open();
+        icon.DoubleClick += openHandler;
     }
 
     internal void SetEditMode(bool enabled)
     {
+        if (disposed) return;
         editItem.Text = enabled ? "編集モードをOFF（ロック）" : "編集モードをON";
         icon.Text = enabled ? "DeskCanvas — 編集中" : "DeskCanvas — ロック中";
     }
 
-    internal void SetHideAll(bool hidden) => hideAllItem.Text = hidden ? "すべて表示する" : "すべて一時的に隠す";
+    internal void SetHideAll(bool hidden)
+    {
+        if (!disposed) hideAllItem.Text = hidden ? "すべて表示する" : "すべて一時的に隠す";
+    }
 
     internal void ShowMessage(string title, string message, ToolTipIcon iconType = ToolTipIcon.Info)
     {
-        icon.ShowBalloonTip(3000, title, message, iconType);
+        if (!disposed) icon.ShowBalloonTip(3000, title, message, iconType);
     }
 
     public void Dispose()
     {
+        if (disposed) return;
+        disposed = true;
         icon.Visible = false;
-        icon.ContextMenuStrip?.Dispose();
+        icon.DoubleClick -= openHandler;
+        icon.ContextMenuStrip = null;
+        menu.Dispose();
         icon.Dispose();
         ownedIcon?.Dispose();
     }

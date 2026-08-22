@@ -17,6 +17,7 @@ var tests = new (string Name, Action Run)[]
     ("一時非表示を保存せず実行中の値も壊さない", TestTransientState),
     ("重複と空の項目IDを修復する", TestItemIdentityRepair),
     ("ライブ項目のv2設定を往復する", TestLiveOptionsRoundTrip),
+    ("時計と再生中のミニマルガラス設定を往復する", TestMinimalGlassStyleRoundTrip),
     ("CPUと通信量の初回・リセット・欠損を扱う", TestMetricMath),
     ("GPUを物理エンジン単位で合算する", TestGpuAggregation),
     ("物理NICだけを合算してtunnel二重計上を防ぐ", TestPhysicalNetworkSelection),
@@ -289,6 +290,25 @@ static void TestLiveOptionsRoundTrip()
         var repo = new LayoutRepository(root); repo.Save(layout); var loaded = repo.Load();
         var playing = loaded.Items.Single(item => item.ContentKind == CanvasContentKinds.NowPlaying); var monitor = loaded.Items.Single(item => item.ContentKind == CanvasContentKinds.SystemMonitor);
         Equal(false, playing.NowPlaying.ShowAlbumArt); Equal(false, playing.NowPlaying.ShowSourceApp); Equal(false, monitor.SystemMonitor.ShowCpu); Equal(false, monitor.SystemMonitor.ShowGpu);
+    });
+}
+
+static void TestMinimalGlassStyleRoundTrip()
+{
+    WithTemporaryDirectory(root =>
+    {
+        var layout = new CanvasLayout { Items =
+        [
+            new CanvasItem { ContentKind = CanvasContentKinds.Clock, Clock = new ClockOptions { SurfaceStyle = WidgetSurfaceStyle.MinimalGlass } },
+            new CanvasItem { ContentKind = CanvasContentKinds.NowPlaying, NowPlaying = new NowPlayingOptions { SurfaceStyle = WidgetSurfaceStyle.MinimalGlass } }
+        ] };
+        var repository = new LayoutRepository(root);
+        repository.Save(layout);
+        var loaded = repository.Load();
+        Equal(WidgetSurfaceStyle.MinimalGlass, loaded.Items.Single(item => item.ContentKind == CanvasContentKinds.Clock).Clock.SurfaceStyle);
+        Equal(WidgetSurfaceStyle.MinimalGlass, loaded.Items.Single(item => item.ContentKind == CanvasContentKinds.NowPlaying).NowPlaying.SurfaceStyle);
+        Equal(WidgetSurfaceStyle.MinimalGlass, new ClockOptions { SurfaceStyle = WidgetSurfaceStyle.MinimalGlass }.Clone().SurfaceStyle);
+        Equal(WidgetSurfaceStyle.MinimalGlass, new NowPlayingOptions { SurfaceStyle = WidgetSurfaceStyle.MinimalGlass }.Clone().SurfaceStyle);
     });
 }
 

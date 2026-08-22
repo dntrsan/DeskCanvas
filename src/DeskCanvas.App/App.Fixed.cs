@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace DeskCanvas.App;
 
@@ -11,6 +12,9 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        DispatcherUnhandledException += App_DispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += App_UnhandledException;
+
         var preview = string.Equals(
             Environment.GetEnvironmentVariable("DESKCANVAS_PREVIEW_MODE"),
             "1",
@@ -21,20 +25,21 @@ public partial class App : System.Windows.Application
         singleInstanceMutex = new Mutex(initiallyOwned: true, mutexName, out var ownsMutex);
         if (!ownsMutex)
         {
-            System.Windows.MessageBox.Show(
-                preview
-                    ? "この隔離プレビューはすでに起動しています。"
-                    : "DeskCanvasはすでに起動しています。通知領域のアイコンから開いてください。",
-                "DeskCanvas",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (ForegroundSafetyPolicy.ShouldShowDuplicateInstanceDialog(preview))
+            {
+                System.Windows.MessageBox.Show(
+                    "この隔離プレビューはすでに起動しています。",
+                    "DeskCanvas",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
             Shutdown();
             return;
         }
 
         try
         {
-            controller = new DeskCanvasController();
+            controller = new DeskCanvasController(previewMode: preview);
             controller.Start();
         }
         catch (Exception error)
@@ -48,8 +53,33 @@ public partial class App : System.Windows.Application
         }
     }
 
+    private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        e.Handled = true;
+        try
+        {
+            System.Windows.MessageBox.Show(
+                $"予期しないエラーが発生しました。作業内容はできるだけ保存されています。\n\n{e.Exception.Message}",
+                "DeskCanvas",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+        catch (Exception)
+        {
+            // A failure while reporting must not take the tray process down a second time.
+        }
+    }
+
+    private static void App_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        // Background-thread failures have no dispatcher. The process may still die;
+        // there is no safe UI to show from here.
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
+        DispatcherUnhandledException -= App_DispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException -= App_UnhandledException;
         controller?.Dispose();
         if (singleInstanceMutex is not null)
         {

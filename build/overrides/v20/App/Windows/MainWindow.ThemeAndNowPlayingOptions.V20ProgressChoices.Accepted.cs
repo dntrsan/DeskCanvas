@@ -11,10 +11,13 @@ public partial class MainWindow
 {
     private WpfComboBox? widgetThemeCombo;
     private TextBlock? widgetThemeLabel;
+    private TextBlock? surfaceStyleLabel;
+    private WpfComboBox? surfaceStyleCombo;
     private TextBlock? nowPlayingOptionsLabel;
     private WpfCheckBox? spectrumVisibleCheck;
     private WpfComboBox? progressStyleCombo;
     private bool updatingWidgetTheme;
+    private bool updatingSurfaceStyle;
     private bool updatingNowPlayingOptions;
 
     static MainWindow() => EventManager.RegisterClassHandler(typeof(MainWindow), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnAnyMainWindowLoaded));
@@ -25,26 +28,34 @@ public partial class MainWindow
         if (widgetThemeCombo is not null) return;
         widgetThemeLabel = new TextBlock { Text = "ウィジェットテーマ", Margin = new Thickness(0, 20, 0, 7), Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(168, 169, 183)) };
         widgetThemeCombo = new WpfComboBox { ItemsSource = Enum.GetValues<WidgetThemeKind>(), SelectedItem = WidgetThemeKind.Auto }; widgetThemeCombo.SelectionChanged += WidgetThemeCombo_SelectionChanged;
+        surfaceStyleLabel = new TextBlock { Text = "カードスタイル", Margin = new Thickness(0, 12, 0, 7), Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(168, 169, 183)) };
+        surfaceStyleCombo = new WpfComboBox { ItemsSource = SurfaceStyleChoices }; surfaceStyleCombo.SelectionChanged += SurfaceStyleCombo_SelectionChanged;
         nowPlayingOptionsLabel = new TextBlock { Text = "再生中の設定", Margin = new Thickness(0, 18, 0, 7), Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(168, 169, 183)) };
         spectrumVisibleCheck = new WpfCheckBox { Content = "オーディオスペクトラムを表示", Margin = new Thickness(0, 2, 0, 6) }; spectrumVisibleCheck.Checked += NowPlayingOptionChanged; spectrumVisibleCheck.Unchecked += NowPlayingOptionChanged;
         progressStyleCombo = new WpfComboBox { ItemsSource = ProgressChoices, Margin = new Thickness(0, 2, 0, 0) }; progressStyleCombo.SelectionChanged += NowPlayingOptionChanged;
         var decorationIndex = EditorPanel.Children.IndexOf(DecorationCombo); var insertIndex = decorationIndex >= 0 ? decorationIndex + 1 : EditorPanel.Children.Count;
-        EditorPanel.Children.Insert(insertIndex, widgetThemeLabel); EditorPanel.Children.Insert(insertIndex + 1, widgetThemeCombo); EditorPanel.Children.Insert(insertIndex + 2, nowPlayingOptionsLabel); EditorPanel.Children.Insert(insertIndex + 3, spectrumVisibleCheck); EditorPanel.Children.Insert(insertIndex + 4, new TextBlock { Text = "再生バー", Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(168, 169, 183)), Margin = new Thickness(0, 3, 0, 4) }); EditorPanel.Children.Insert(insertIndex + 5, progressStyleCombo);
+        EditorPanel.Children.Insert(insertIndex, widgetThemeLabel); EditorPanel.Children.Insert(insertIndex + 1, widgetThemeCombo); EditorPanel.Children.Insert(insertIndex + 2, surfaceStyleLabel); EditorPanel.Children.Insert(insertIndex + 3, surfaceStyleCombo); EditorPanel.Children.Insert(insertIndex + 4, nowPlayingOptionsLabel); EditorPanel.Children.Insert(insertIndex + 5, spectrumVisibleCheck); EditorPanel.Children.Insert(insertIndex + 6, new TextBlock { Text = "再生バー", Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(168, 169, 183)), Margin = new Thickness(0, 3, 0, 4) }); EditorPanel.Children.Insert(insertIndex + 7, progressStyleCombo);
         ItemsList.SelectionChanged += (_, _) => Dispatcher.BeginInvoke(UpdateThemeEditor, DispatcherPriority.DataBind); UpdateThemeEditor();
     }
     private void UpdateThemeEditor()
     {
-        if (widgetThemeCombo is null || widgetThemeLabel is null || nowPlayingOptionsLabel is null || spectrumVisibleCheck is null || progressStyleCombo is null) return;
-        var item = SelectedItem; var builtIn = item?.ContentKind is CanvasContentKinds.Clock or CanvasContentKinds.NowPlaying or CanvasContentKinds.SystemMonitor; var isNowPlaying = item?.ContentKind == CanvasContentKinds.NowPlaying;
-        widgetThemeLabel.Visibility = builtIn ? Visibility.Visible : Visibility.Collapsed; widgetThemeCombo.Visibility = builtIn ? Visibility.Visible : Visibility.Collapsed; nowPlayingOptionsLabel.Visibility = isNowPlaying ? Visibility.Visible : Visibility.Collapsed; spectrumVisibleCheck.Visibility = isNowPlaying ? Visibility.Visible : Visibility.Collapsed; progressStyleCombo.Visibility = isNowPlaying ? Visibility.Visible : Visibility.Collapsed;
+        if (widgetThemeCombo is null || widgetThemeLabel is null || surfaceStyleLabel is null || surfaceStyleCombo is null || nowPlayingOptionsLabel is null || spectrumVisibleCheck is null || progressStyleCombo is null) return;
+        var item = SelectedItem; var builtIn = item?.ContentKind is CanvasContentKinds.Clock or CanvasContentKinds.NowPlaying or CanvasContentKinds.SystemMonitor; var canUseGlass = item?.ContentKind is CanvasContentKinds.Clock or CanvasContentKinds.NowPlaying; var isNowPlaying = item?.ContentKind == CanvasContentKinds.NowPlaying;
+        widgetThemeLabel.Visibility = builtIn ? Visibility.Visible : Visibility.Collapsed; widgetThemeCombo.Visibility = builtIn ? Visibility.Visible : Visibility.Collapsed; surfaceStyleLabel.Visibility = canUseGlass ? Visibility.Visible : Visibility.Collapsed; surfaceStyleCombo.Visibility = canUseGlass ? Visibility.Visible : Visibility.Collapsed; nowPlayingOptionsLabel.Visibility = isNowPlaying ? Visibility.Visible : Visibility.Collapsed; spectrumVisibleCheck.Visibility = isNowPlaying ? Visibility.Visible : Visibility.Collapsed; progressStyleCombo.Visibility = isNowPlaying ? Visibility.Visible : Visibility.Collapsed;
         var progressLabel = EditorPanel.Children.OfType<TextBlock>().FirstOrDefault(control => control.Text == "再生バー"); if (progressLabel is not null) progressLabel.Visibility = isNowPlaying ? Visibility.Visible : Visibility.Collapsed;
         updatingWidgetTheme = true; widgetThemeCombo.SelectedItem = builtIn && item is not null && Enum.IsDefined(item.Theme) ? item.Theme : WidgetThemeKind.Auto; updatingWidgetTheme = false;
+        updatingSurfaceStyle = true; surfaceStyleCombo.SelectedItem = SurfaceChoice(canUseGlass && item is not null ? item.ContentKind == CanvasContentKinds.Clock ? item.Clock.SurfaceStyle : item.NowPlaying.SurfaceStyle : WidgetSurfaceStyle.Standard); updatingSurfaceStyle = false;
         updatingNowPlayingOptions = true; spectrumVisibleCheck.IsChecked = isNowPlaying && item is not null ? item.NowPlaying.ShowSpectrum : true; progressStyleCombo.SelectedItem = Choice(isNowPlaying && item is not null ? item.NowPlaying.ProgressStyle : NowPlayingProgressStyle.Simple); progressStyleCombo.IsEnabled = isNowPlaying && item?.NowPlaying.ShowTimeline == true; updatingNowPlayingOptions = false;
     }
     private void WidgetThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (updatingWidgetTheme || SelectedItem is not { } item || widgetThemeCombo?.SelectedItem is not WidgetThemeKind theme) return;
         controller.SetTheme(item, theme); Dispatcher.BeginInvoke(UpdateThemeEditor, DispatcherPriority.DataBind);
+    }
+    private void SurfaceStyleCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (updatingSurfaceStyle || SelectedItem is not { ContentKind: CanvasContentKinds.Clock or CanvasContentKinds.NowPlaying } item || surfaceStyleCombo?.SelectedItem is not SurfaceStyleChoice choice) return;
+        controller.SetSurfaceStyle(item, choice.Value); Dispatcher.BeginInvoke(UpdateThemeEditor, DispatcherPriority.DataBind);
     }
     private void NowPlayingOptionChanged(object sender, RoutedEventArgs e)
     {
@@ -53,6 +64,9 @@ public partial class MainWindow
         controller.SetTheme(item, item.Theme); Dispatcher.BeginInvoke(UpdateThemeEditor, DispatcherPriority.DataBind);
     }
     private static readonly ProgressChoice[] ProgressChoices = [new(NowPlayingProgressStyle.Simple, "シンプル"), new(NowPlayingProgressStyle.Wave, "ウェーブ")];
+    private static readonly SurfaceStyleChoice[] SurfaceStyleChoices = [new(WidgetSurfaceStyle.Standard, "標準"), new(WidgetSurfaceStyle.MinimalGlass, "ミニマルガラス")];
     private static ProgressChoice Choice(NowPlayingProgressStyle value) => ProgressChoices.First(choice => choice.Value == NowPlayingOptions.NormalizeProgressStyle(value));
+    private static SurfaceStyleChoice SurfaceChoice(WidgetSurfaceStyle value) => SurfaceStyleChoices.First(choice => choice.Value == (Enum.IsDefined(value) ? value : WidgetSurfaceStyle.Standard));
     private sealed record ProgressChoice(NowPlayingProgressStyle Value, string Name) { public override string ToString() => Name; }
+    private sealed record SurfaceStyleChoice(WidgetSurfaceStyle Value, string Name) { public override string ToString() => Name; }
 }

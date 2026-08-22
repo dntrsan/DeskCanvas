@@ -1,0 +1,6 @@
+#define AppName "DeskCanvas"
+#define AppVersion "1.2.0-beta.11"
+#define AppFileVersion "1.2.0.11"
+#define AppExeName "DeskCanvas.exe"
+#define PayloadPath "..\artifacts\beta\DeskCanvas-1.2.0-beta.11-win-x64\DeskCanvas.exe"
+#include "DeskCanvas.v31.Beta4.CodexUsage.SingleFile.iss"

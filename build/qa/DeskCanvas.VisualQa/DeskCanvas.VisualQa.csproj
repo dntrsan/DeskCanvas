@@ -5,8 +5,10 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>DeskCanvas.Tests</AssemblyName>
     <RootNamespace>DeskCanvas.VisualQa</RootNamespace>
+    <StartupObject>QaEntry</StartupObject>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="V21ClockQaEntry.Final2.cs" />
     <ProjectReference Include="../../../src/DeskCanvas.App/DeskCanvas.App.csproj" />
   </ItemGroup>
 </Project>

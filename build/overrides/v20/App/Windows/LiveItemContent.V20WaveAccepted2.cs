@@ -121,10 +121,10 @@ internal sealed class NowPlayingItemContent : IDesktopItemContent
     private readonly Grid timeline = new() { Height = 16, Margin = new Thickness(0, 4, 0, 0) };
     private readonly WpfButton previous, playPause, next;
     private readonly StackPanel visualizer = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-    private readonly DispatcherTimer playbackTimer = new() { Interval = TimeSpan.FromMilliseconds(120) };
-    private readonly DispatcherTimer waveTimer = new() { Interval = TimeSpan.FromMilliseconds(50) };
+    private readonly DispatcherTimer playbackTimer = new() { Interval = BackgroundLoadPolicy.PlaybackSpectrumInterval };
+    private readonly DispatcherTimer waveTimer = new() { Interval = BackgroundLoadPolicy.WaveAnimationInterval };
     private readonly AudioSpectrumLeaseController spectrumLevel; private IDisposable? lease; private NowPlayingSnapshot shown = NowPlayingSnapshot.Empty;
-    private bool active, dragging, disposed; private string marqueeIdentity = ""; private double marqueeViewportWidth = -1, wavePhase, waveSpeed; private DateTime waveTickAt; private WidgetPalette palette;
+    private bool active, dragging, disposed; private string marqueeIdentity = ""; private double marqueeViewportWidth = -1, wavePhase, waveSpeed; private DateTime waveTickAt; private WidgetPalette palette; private int artworkFingerprint = int.MinValue; private WidgetSurfaceStyle appliedSurfaceStyle = (WidgetSurfaceStyle)(-1);
 
     internal NowPlayingItemContent(CanvasItem item, INowPlayingService service, Func<IAudioSpectrumReader>? spectrumReaderFactory = null)
     {
@@ -171,10 +171,10 @@ internal sealed class NowPlayingItemContent : IDesktopItemContent
     {
         var identity = string.Join("\u001f", snapshot.SourceApp, snapshot.Title, snapshot.Artist, snapshot.Album); var mediaChanged = !string.Equals(identity, marqueeIdentity, StringComparison.Ordinal); marqueeIdentity = identity; shown = snapshot;
         title.Text = snapshot.Title; artist.Text = snapshot.Artist; source.Text = item.NowPlaying.ShowSourceApp ? Friendly(snapshot.SourceApp) : ""; source.Visibility = string.IsNullOrWhiteSpace(source.Text) ? Visibility.Collapsed : Visibility.Visible; artist.Visibility = string.IsNullOrWhiteSpace(artist.Text) ? Visibility.Collapsed : Visibility.Visible; artworkHost.Visibility = item.NowPlaying.ShowAlbumArt ? Visibility.Visible : Visibility.Collapsed;
-        ApplyArtwork(snapshot.Artwork); ApplyPalette(WidgetTheme.Resolve(item, snapshot.Artwork)); previous.IsEnabled = snapshot.CanPrevious; playPause.IsEnabled = snapshot.CanPlayPause; next.IsEnabled = snapshot.CanNext; playPause.Content = Icon(snapshot.State == NowPlayingState.Playing ? PauseGeometry() : PlayGeometry(), 19);
+        var nextArtworkFingerprint = ArtworkFingerprint(snapshot.Artwork); var surfaceChanged = appliedSurfaceStyle != item.NowPlaying.SurfaceStyle; if (mediaChanged || surfaceChanged || nextArtworkFingerprint != artworkFingerprint) { artworkFingerprint = nextArtworkFingerprint; appliedSurfaceStyle = item.NowPlaying.SurfaceStyle; ApplyArtwork(snapshot.Artwork); ApplyPalette(item.NowPlaying.SurfaceStyle == WidgetSurfaceStyle.MinimalGlass ? MinimalGlassStyle.Palette : WidgetTheme.Resolve(item, snapshot.Artwork)); } previous.IsEnabled = snapshot.CanPrevious; playPause.IsEnabled = snapshot.CanPlayPause; next.IsEnabled = snapshot.CanNext; playPause.Content = Icon(snapshot.State == NowPlayingState.Playing ? PauseGeometry() : PlayGeometry(), 19);
         var duration = Math.Max(0, snapshot.End.TotalSeconds); var showTimeline = item.NowPlaying.ShowTimeline && duration > 0; timeline.Visibility = showTimeline ? Visibility.Visible : Visibility.Collapsed; elapsed.Visibility = remaining.Visibility = showTimeline ? Visibility.Visible : Visibility.Collapsed; seek.Maximum = Math.Max(1, duration); seek.IsEnabled = seek.IsHitTestVisible = snapshot.CanSeek;
         if (!dragging) seek.Value = Math.Clamp(snapshot.Position.TotalSeconds, 0, seek.Maximum); elapsed.Text = snapshot.Position.ToString(@"m\:ss"); remaining.Text = "−" + (snapshot.End > snapshot.Position ? snapshot.End - snapshot.Position : TimeSpan.Zero).ToString(@"m\:ss"); visualizer.Visibility = item.NowPlaying.ShowSpectrum ? Visibility.Visible : Visibility.Collapsed; PaintTimeline();
-        if (active && snapshot.State == NowPlayingState.Playing) { if (!playbackTimer.IsEnabled) playbackTimer.Start(); } else { playbackTimer.Stop(); spectrumLevel.Suspend(); Freeze(); }
+        var needsPlaybackTicks = BackgroundLoadPolicy.NeedsPlaybackTicks(active, snapshot.State == NowPlayingState.Playing, item.NowPlaying.ShowTimeline, item.NowPlaying.ShowSpectrum); if (needsPlaybackTicks) { playbackTimer.Interval = BackgroundLoadPolicy.PlaybackInterval(item.NowPlaying.ShowSpectrum); if (!playbackTimer.IsEnabled) playbackTimer.Start(); } else { playbackTimer.Stop(); spectrumLevel.Suspend(); Freeze(); }
         if (!item.NowPlaying.ShowSpectrum) { spectrumLevel.Suspend(); Freeze(); } UpdateWaveMotion();
         if (mediaChanged) { StopMarquee(); root.Dispatcher.BeginInvoke(RecalculateMarquee, DispatcherPriority.Loaded); }
     }
@@ -182,13 +182,20 @@ internal sealed class NowPlayingItemContent : IDesktopItemContent
     {
         artwork.Fill = Brushes.Transparent; if (bytes is not { Length: > 0 }) return; try { using var stream = new MemoryStream(bytes); var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad; image.StreamSource = stream; image.EndInit(); image.Freeze(); artwork.Fill = new ImageBrush(image) { Stretch = Stretch.UniformToFill }; } catch { }
     }
+    private static int ArtworkFingerprint(byte[]? bytes)
+    {
+        if (bytes is not { Length: > 0 }) return 0;
+        var hash = new HashCode(); hash.Add(bytes.Length); var samples = Math.Min(16, bytes.Length);
+        for (var index = 0; index < samples; index++) hash.Add(bytes[index * (bytes.Length - 1) / Math.Max(1, samples - 1)]);
+        return hash.ToHashCode();
+    }
     private void ApplyPalette(WidgetPalette p)
     {
-        palette = p; WidgetTheme.Apply(root, p); var foreground = new SolidColorBrush(p.Foreground); var muted = new SolidColorBrush(p.Muted); title.Foreground = foreground; artist.Foreground = muted; source.Foreground = muted; elapsed.Foreground = muted; remaining.Foreground = muted; timelineTrack.Background = new SolidColorBrush(p.Muted) { Opacity = .55 }; timelineFill.Background = new SolidColorBrush(p.Accent); SetIcon(previous, foreground); SetIcon(playPause, foreground); SetIcon(next, foreground); for (var i = 0; i < 7; i++) ((Border)visualizer.Children[i]).Background = new SolidColorBrush(WidgetTheme.Harmonize(p.Accent, (i - 3) * .018)); PaintTimeline();
+        palette = p; if (item.NowPlaying.SurfaceStyle == WidgetSurfaceStyle.MinimalGlass) MinimalGlassStyle.Apply(root); else WidgetTheme.Apply(root, p); var foreground = new SolidColorBrush(p.Foreground); var muted = new SolidColorBrush(p.Muted); title.Foreground = foreground; artist.Foreground = muted; source.Foreground = muted; elapsed.Foreground = muted; remaining.Foreground = muted; timelineTrack.Background = new SolidColorBrush(p.Muted) { Opacity = .55 }; timelineFill.Background = new SolidColorBrush(p.Accent); SetIcon(previous, foreground); SetIcon(playPause, foreground); SetIcon(next, foreground); for (var i = 0; i < 7; i++) ((Border)visualizer.Children[i]).Background = new SolidColorBrush(WidgetTheme.Harmonize(p.Accent, (i - 3) * .018)); PaintTimeline();
     }
     private void PlaybackTick(object? _, EventArgs __)
     {
-        var snapshot = service.Snapshot; shown = snapshot; if (!dragging) seek.Value = Math.Clamp(snapshot.Position.TotalSeconds, 0, seek.Maximum); elapsed.Text = snapshot.Position.ToString(@"m\:ss"); remaining.Text = "−" + (snapshot.End > snapshot.Position ? snapshot.End - snapshot.Position : TimeSpan.Zero).ToString(@"m\:ss"); PaintTimeline();
+        var snapshot = service.Snapshot; shown = snapshot; if (!dragging) seek.Value = Math.Clamp(snapshot.Position.TotalSeconds, 0, seek.Maximum); elapsed.Text = snapshot.Position.ToString(@"m\:ss"); remaining.Text = "−" + (snapshot.End > snapshot.Position ? snapshot.End - snapshot.Position : TimeSpan.Zero).ToString(@"m\:ss"); if (item.NowPlaying.ProgressStyle == NowPlayingProgressStyle.Simple) PaintTimeline();
         if (item.NowPlaying.ShowSpectrum) spectrumLevel.Poll(active && shown.State == NowPlayingState.Playing, bands => { for (var i = 0; i < 7; i++) ((Border)visualizer.Children[i]).Height = 5 + Math.Clamp(i < bands.Count ? bands[i] : 0, 0, 1) * 17; }); else spectrumLevel.Suspend();
     }
     private void Freeze() { for (var i = 0; i < 7; i++) ((Border)visualizer.Children[i]).Height = 5 + i % 3 * 2; }
@@ -209,8 +216,9 @@ internal sealed class NowPlayingItemContent : IDesktopItemContent
         }
         geometry.Freeze(); return geometry;
     }
-    private LinearGradientBrush WaveBrush(double ratio)
+    private Brush WaveBrush(double ratio)
     {
+        if (item.NowPlaying.SurfaceStyle == WidgetSurfaceStyle.MinimalGlass) return new SolidColorBrush(palette.Accent);
         var brush = new LinearGradientBrush { StartPoint = new Point(0, .5), EndPoint = new Point(1, .5), MappingMode = BrushMappingMode.RelativeToBoundingBox };
         foreach (var stop in WaveProgressMath.GradientStops(ratio)) brush.GradientStops.Add(new GradientStop(stop.Accent ? palette.Accent : palette.Muted, stop.Offset)); return brush;
     }

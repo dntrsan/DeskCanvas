@@ -1,0 +1,11 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Core'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\Core\LegacyLayoutImportService.cs" Link="LegacyLayoutImportService.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\App\LegacyImportUi.cs" Link="LegacyImportUi.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v29\Tests\V29LegacyImportContractTests.cs" Link="V29LegacyImportContractTests.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,27 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Version>1.3.0</Version>
+    <VersionPrefix>1.3.0</VersionPrefix>
+    <VersionSuffix></VersionSuffix>
+    <PackageVersion>1.3.0</PackageVersion>
+    <AssemblyVersion>1.3.0.0</AssemblyVersion>
+    <FileVersion>1.3.0.0</FileVersion>
+    <InformationalVersion>1.3.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DeskCanvasInstallerSource>$(MSBuildThisFileDirectory)..\..\installer\DeskCanvas.v45.V130.SingleFile.iss</DeskCanvasInstallerSource>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v44\App\ApplicationVersion.V44Beta17.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v45\App\ApplicationVersion.V45V130.cs" Link="ApplicationVersion.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v44\Tests\V44Beta17ContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v45\Tests\V45V130ContractTests.cs" Link="V45V130ContractTests.cs" />
+  </ItemGroup>
+</Project>

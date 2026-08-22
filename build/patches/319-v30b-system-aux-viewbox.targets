@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v30b\App\Windows\MediaWindow.V30SystemAuxViewbox.cs" Link="Windows\MediaWindow.V30SystemAuxViewbox.cs" />
+  </ItemGroup>
+</Project>

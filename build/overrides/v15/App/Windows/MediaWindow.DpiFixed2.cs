@@ -12,7 +12,9 @@ namespace DeskCanvas.App.Windows;
 public partial class MediaWindow : Window, IDisposable
 {
     private const int WmNcHitTest = 0x0084;
+    private const int WmMouseActivate = 0x0021;
     private static readonly IntPtr HtTransparent = new(-1);
+    private static readonly IntPtr MaNoActivate = new(3);
     private const double ExtraSpace = 150;
 
     private readonly CanvasItem item;
@@ -95,17 +97,13 @@ public partial class MediaWindow : Window, IDisposable
     internal void SetEffectivelyVisible(bool visible)
     {
         effectivelyVisible = visible;
-        content.SetActive(visible);
         if (visible)
         {
-            if (!IsVisible)
-            {
-                Show();
-            }
             Reposition();
         }
         else
         {
+            content.SetActive(false);
             EndDrag(persist: true);
             if (IsVisible)
             {
@@ -116,15 +114,36 @@ public partial class MediaWindow : Window, IDisposable
 
     internal void Reposition()
     {
-        if (!effectivelyVisible || handle == IntPtr.Zero)
+        if (!effectivelyVisible)
         {
             return;
         }
+        if (handle == IntPtr.Zero)
+        {
+            _ = new WindowInteropHelper(this).EnsureHandle();
+        }
+        if (handle == IntPtr.Zero) return;
         var side = CalculateSide();
         var dpi = VisualTreeHelper.GetDpi(this);
         var width = Math.Ceiling(side * dpi.DpiScaleX);
         var height = Math.Ceiling(side * dpi.DpiScaleY);
-        desktop.PlaceAboveDesktop(handle, item.CenterX - width / 2, item.CenterY - height / 2, width, height);
+        var left = item.CenterX - width / 2;
+        var top = item.CenterY - height / 2;
+        if (!desktop.PlaceAboveDesktop(handle, left, top, width, height, showWindow: false))
+        {
+            content.SetActive(false);
+            if (IsVisible) Hide();
+            return;
+        }
+        if (!IsVisible) Show();
+        if (!desktop.PlaceAboveDesktop(handle, left, top, width, height, showWindow: false))
+        {
+            content.SetActive(false);
+            desktop.Demote(handle);
+            if (IsVisible) Hide();
+            return;
+        }
+        content.SetActive(true);
     }
 
     public void Dispose()
@@ -344,6 +363,11 @@ public partial class MediaWindow : Window, IDisposable
 
     private IntPtr WindowProc(IntPtr window, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (message == WmMouseActivate)
+        {
+            handled = true;
+            return MaNoActivate;
+        }
         if (message != WmNcHitTest)
         {
             return IntPtr.Zero;

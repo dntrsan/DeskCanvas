@@ -8,9 +8,40 @@
         ShowActivated="False"
         ResizeMode="NoResize"
         Focusable="False"
+        UseLayoutRounding="True"
         MouseEnter="Visual_MouseEnter"
         MouseLeave="Visual_MouseLeave"
         Title="DeskCanvas.Item">
+    <Window.Resources>
+        <!--  Toolbar icons are vector paths so they never fall back to a missing icon font.  -->
+        <Style x:Key="ToolIcon" TargetType="Path">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="1.5"/>
+            <Setter Property="StrokeStartLineCap" Value="Round"/>
+            <Setter Property="StrokeEndLineCap" Value="Round"/>
+            <Setter Property="StrokeLineJoin" Value="Round"/>
+            <Setter Property="Stroke" Value="{StaticResource LabelBrush}"/>
+        </Style>
+
+        <!--  A white grab handle with a hairline edge, as used for selection knobs.  -->
+        <Style x:Key="Handle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="6"
+                                      Opacity=".4"
+                                      ShadowDepth="1"
+                                      Color="Black"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Grid x:Name="Root">
         <Grid x:Name="RotatedVisual"
               HorizontalAlignment="Center"
@@ -23,56 +54,80 @@
                         BorderBrush="White"
                         BorderThickness="0"/>
             </Grid>
+
             <Border x:Name="ChromeBorder"
                     IsHitTestVisible="False"
-                    BorderBrush="#CC8C7CFF"
+                    BorderBrush="{StaticResource AccentBrush}"
                     BorderThickness="0"
-                    CornerRadius="4"/>
+                    CornerRadius="6"/>
+
             <Border x:Name="Toolbar"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
-                    Margin="0,7,7,0"
-                    Padding="4"
-                    CornerRadius="8"
-                    Background="#E51A1B24">
+                    Margin="0,8,8,0"
+                    Padding="5,4"
+                    CornerRadius="12"
+                    Background="#E61C1C1E"
+                    BorderBrush="#26FFFFFF"
+                    BorderThickness="1"
+                    SnapsToDevicePixels="True">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="18"
+                                      Opacity=".34"
+                                      ShadowDepth="3"
+                                      Color="Black"/>
+                </Border.Effect>
                 <StackPanel Orientation="Horizontal">
-                    <Button x:Name="FlipButton" Click="Flip_Click" ToolTip="左右反転" Content="↔" FontSize="15" Padding="7,3" Margin="1"/>
-                    <Button Click="Hide_Click" ToolTip="この項目を一時的に隠す" Content="◌" FontSize="15" Padding="7,3" Margin="1"/>
-                    <Button Click="Lock_Click" ToolTip="この項目をロック" Content="🔒" FontSize="13" Padding="7,3" Margin="1"/>
-                    <Button Click="Delete_Click" ToolTip="削除" Content="×" FontSize="16" Padding="7,2" Margin="1" Foreground="#FFFF8D9A"/>
+                    <Button x:Name="FlipButton"
+                            Style="{StaticResource GlyphButton}"
+                            Click="Flip_Click"
+                            ToolTip="左右反転">
+                        <Path Style="{StaticResource ToolIcon}" Data="M 1,8 H 15 M 1,8 L 4.5,4.5 M 1,8 L 4.5,11.5 M 15,8 L 11.5,4.5 M 15,8 L 11.5,11.5"/>
+                    </Button>
+                    <Button Style="{StaticResource GlyphButton}" Click="Hide_Click" ToolTip="この項目を一時的に隠す">
+                        <Path Style="{StaticResource ToolIcon}" Data="M 2.5,8 C 4.5,4.6 11.5,4.6 13.5,8 C 11.5,11.4 4.5,11.4 2.5,8 Z M 3,13 L 13,3"/>
+                    </Button>
+                    <Button Style="{StaticResource GlyphButton}" Click="Lock_Click" ToolTip="この項目をロック">
+                        <Path Style="{StaticResource ToolIcon}" Data="M 4.5,7.5 H 11.5 V 13.5 H 4.5 Z M 6.2,7.5 V 5.6 A 1.8,1.8 0 0 1 9.8,5.6 V 7.5"/>
+                    </Button>
+                    <Button Style="{StaticResource GlyphButton}" Click="Delete_Click" ToolTip="削除">
+                        <Path Style="{StaticResource ToolIcon}"
+                              Stroke="{StaticResource DestructiveBrush}"
+                              Data="M 4,4 L 12,12 M 12,4 L 4,12"/>
+                    </Button>
                 </StackPanel>
             </Border>
-            <Ellipse x:Name="RotationHandle"
-                     Width="18"
-                     Height="18"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Top"
-                     Margin="0,-31,0,0"
-                     Fill="#FF8C7CFF"
-                     Stroke="White"
-                     StrokeThickness="2"
-                     Cursor="Hand"
-                     MouseLeftButtonDown="Rotate_MouseLeftButtonDown"/>
+
+            <Border x:Name="RotationHandle"
+                    Style="{StaticResource Handle}"
+                    Width="14"
+                    Height="14"
+                    CornerRadius="7"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    Margin="0,-30,0,0"
+                    Cursor="Hand"
+                    MouseLeftButtonDown="Rotate_MouseLeftButtonDown"/>
+
             <Line x:Name="RotationStem"
                   X1="0"
-                  Y1="-13"
+                  Y1="-16"
                   X2="0"
                   Y2="0"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Top"
                   IsHitTestVisible="False"
-                  Stroke="#FF8C7CFF"
-                  StrokeThickness="2"/>
+                  Stroke="{StaticResource AccentBrush}"
+                  StrokeThickness="1.5"/>
+
             <Border x:Name="ResizeHandle"
-                    Width="22"
-                    Height="22"
+                    Style="{StaticResource Handle}"
+                    Width="14"
+                    Height="14"
+                    CornerRadius="4"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
-                    Margin="0,0,-10,-10"
-                    CornerRadius="5"
-                    Background="#FF8C7CFF"
-                    BorderBrush="White"
-                    BorderThickness="2"
+                    Margin="0,0,-7,-7"
                     Cursor="SizeNWSE"
                     MouseLeftButtonDown="Resize_MouseLeftButtonDown"/>
         </Grid>

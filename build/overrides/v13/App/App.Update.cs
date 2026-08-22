@@ -25,13 +25,14 @@ public partial class App : System.Windows.Application
         singleInstanceMutex = new Mutex(initiallyOwned: true, mutexName, out var ownsMutex);
         if (!ownsMutex)
         {
-            System.Windows.MessageBox.Show(
-                preview
-                    ? "この隔離プレビューはすでに起動しています。"
-                    : "DeskCanvasはすでに起動しています。通知領域のアイコンから開いてください。",
-                "DeskCanvas",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (ForegroundSafetyPolicy.ShouldShowDuplicateInstanceDialog(preview))
+            {
+                System.Windows.MessageBox.Show(
+                    "この隔離プレビューはすでに起動しています。",
+                    "DeskCanvas",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
             Shutdown();
             return;
         }

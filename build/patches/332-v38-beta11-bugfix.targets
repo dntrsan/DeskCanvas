@@ -1,0 +1,70 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Version>1.2.0-beta.11</Version>
+    <VersionPrefix>1.2.0</VersionPrefix>
+    <VersionSuffix>beta.11</VersionSuffix>
+    <PackageVersion>1.2.0-beta.11</PackageVersion>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.11</FileVersion>
+    <InformationalVersion>1.2.0-beta.11</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DeskCanvasInstallerSource>$(MSBuildThisFileDirectory)..\..\installer\DeskCanvas.v38.Beta11.Bugfix.SingleFile.iss</DeskCanvasInstallerSource>
+  </PropertyGroup>
+
+  <!-- Re-activate the src tree that carries the Apple redesign and the bug fixes.
+       Earlier patches had swapped these files for override copies. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Core'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30\Core\Models.V30.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v38\Core\Models.V38.cs" Link="Models.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30b\Core\LayoutRepository.V30Layers.Final3.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\LayoutRepository.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.App'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v37\App\ApplicationVersion.V37Beta10.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v38\App\ApplicationVersion.V38Beta11.cs" Link="ApplicationVersion.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v12\App\DeskCanvasController.Accepted.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\DeskCanvasController.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v13\App\App.Update.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\App.Fixed.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v13\App\Services\UpdateCheckService.Accepted.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\Services\UpdateCheckService.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\App\Services\NowPlayingService.V20Stable2.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\Services\NowPlayingService.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v29\App\StartupService.SelfHeal.Final.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\Services\StartupService.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v12\App\Windows\DesktopItemContent.Accepted.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\Windows\DesktopItemContent.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\App\Windows\LiveItemContent.V20WaveAccepted2.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\Windows\LiveItemContent.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\App\Windows\BuiltInContentPicker.V20ProgressChoices.Accepted.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\Windows\BuiltInContentPicker.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v15\App\Windows\MediaWindow.DpiFixed2.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)\Windows\MediaWindow.Fixed.cs" />
+
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v20\App\Windows\MainWindow.ThemeAndNowPlayingOptions.V20ProgressChoices.Accepted.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v30b\App\Windows\SystemMonitor.V30Responsive.Final2.cs" />
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v22\App\Windows\MainWindowVersionLabel.V22Beta.cs" />
+
+    <Page Remove="$(MSBuildThisFileDirectory)..\overrides\v14\App\Windows\MainWindow.xaml" />
+    <Page Include="$(MSBuildProjectDirectory)\Windows\MainWindow.xaml" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'DeskCanvas.Tests'">
+    <Compile Remove="$(MSBuildThisFileDirectory)..\overrides\v37\Tests\V37Beta10ContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)..\overrides\v38\Tests\V38Beta11ContractTests.cs" Link="V38Beta11ContractTests.cs" />
+  </ItemGroup>
+</Project>

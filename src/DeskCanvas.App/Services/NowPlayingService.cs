@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Media.Control;
 
@@ -5,6 +6,7 @@ namespace DeskCanvas.App.Services;
 
 internal enum NowPlayingState { None, Playing, Paused, Stopped, Unknown }
 internal enum NowPlayingCommand { Previous, PlayPause, Next, Seek }
+internal enum NowPlayingRefreshCause { Media, Playback, Timeline, Reconciliation, Switch, Seek }
 
 internal sealed record NowPlayingSnapshot(
     bool HasSession,
@@ -19,7 +21,8 @@ internal sealed record NowPlayingSnapshot(
     bool CanPrevious,
     bool CanPlayPause,
     bool CanNext,
-    bool CanSeek)
+    bool CanSeek,
+    DateTimeOffset ObservedAt = default)
 {
     internal static NowPlayingSnapshot Empty { get; } = new(false, "", "再生中のコンテンツはありません", "", "", null, NowPlayingState.None, TimeSpan.Zero, TimeSpan.Zero, false, false, false, false);
 }
@@ -36,7 +39,8 @@ internal sealed record NowPlayingData(
     bool CanPrevious,
     bool CanPlayPause,
     bool CanNext,
-    bool CanSeek);
+    bool CanSeek,
+    DateTimeOffset TimelineObservedAt = default);
 
 internal interface INowPlayingManagerProvider
 {
@@ -58,6 +62,12 @@ internal interface INowPlayingSession : IDisposable
     Task<bool> TryCommandAsync(NowPlayingCommand command, TimeSpan position = default);
 }
 
+internal interface IGlobalMediaCommandSender
+{
+    bool IsAvailable { get; }
+    bool TrySend(NowPlayingCommand command);
+}
+
 internal interface INowPlayingService : IDisposable
 {
     NowPlayingSnapshot Snapshot { get; }
@@ -69,21 +79,54 @@ internal interface INowPlayingService : IDisposable
     Task<bool> SeekAsync(TimeSpan position);
 }
 
+internal static class NowPlayingTimelineMath
+{
+    internal static TimeSpan Clamp(TimeSpan position, TimeSpan end) =>
+        end > TimeSpan.Zero
+            ? TimeSpan.FromTicks(Math.Clamp(position.Ticks, 0, end.Ticks))
+            : position < TimeSpan.Zero ? TimeSpan.Zero : position;
+
+    internal static bool IsLoopRewind(TimeSpan projected, TimeSpan raw, TimeSpan end) =>
+        end > TimeSpan.Zero && projected >= end - TimeSpan.FromSeconds(2) && raw <= TimeSpan.FromSeconds(3);
+
+    internal static bool ShouldKeepProjected(NowPlayingRefreshCause cause, NowPlayingState previousState, TimeSpan projected, TimeSpan raw, TimeSpan end) =>
+        previousState == NowPlayingState.Playing
+        && raw < projected
+        && cause is not NowPlayingRefreshCause.Timeline and not NowPlayingRefreshCause.Seek
+        && !IsLoopRewind(projected, raw, end);
+}
+
 /// <summary>One manager/session subscription shared by desktop widgets and picker previews.</summary>
 internal sealed class NowPlayingService : INowPlayingService
 {
     private readonly INowPlayingManagerProvider provider;
+    private readonly IGlobalMediaCommandSender mediaCommands;
+    private readonly TimeSpan reconciliationInterval;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly object stateGate = new();
     private INowPlayingManager? manager;
     private INowPlayingSession? session;
+    private System.Threading.Timer? reconciliationTimer;
     private int consumers;
     private bool disposed;
+    private NowPlayingSnapshot snapshot = NowPlayingSnapshot.Empty;
+    private string? mediaIdentity;
+    private TimeSpan lastKnownEnd, lastKnownPosition;
+    private TimeSpan? pendingSeek;
 
     internal NowPlayingService() : this(new GsmtcManagerProvider()) { }
-    internal NowPlayingService(INowPlayingManagerProvider provider) => this.provider = provider;
 
-    public NowPlayingSnapshot Snapshot { get; private set; } = NowPlayingSnapshot.Empty;
+    internal NowPlayingService(
+        INowPlayingManagerProvider provider,
+        IGlobalMediaCommandSender? mediaCommands = null,
+        TimeSpan? reconciliationInterval = null)
+    {
+        this.provider = provider;
+        this.mediaCommands = mediaCommands ?? new WindowsGlobalMediaCommandSender();
+        this.reconciliationInterval = reconciliationInterval ?? BackgroundLoadPolicy.NowPlayingReconciliationInterval;
+    }
+
+    public NowPlayingSnapshot Snapshot => Project(snapshot, DateTimeOffset.UtcNow);
     public event EventHandler<NowPlayingSnapshot>? SnapshotChanged;
 
     public IDisposable Acquire()
@@ -121,20 +164,24 @@ internal sealed class NowPlayingService : INowPlayingService
         try
         {
             if (!ShouldRun || manager is not null) return;
-            INowPlayingManager? nextManager = null;
+            INowPlayingManager? next = null;
             try
             {
-                nextManager = await provider.RequestAsync().ConfigureAwait(false);
-                if (!ShouldRun) { nextManager.Dispose(); return; }
-                manager = nextManager;
-                manager.CurrentSessionChanged += Manager_CurrentSessionChanged;
-                await SwitchSessionCoreAsync().ConfigureAwait(false);
+                next = await provider.RequestAsync().ConfigureAwait(false);
+                if (!ShouldRun)
+                {
+                    next.Dispose();
+                    return;
+                }
+                manager = next;
+                manager.CurrentSessionChanged += ManagerChanged;
+                await SwitchCoreAsync().ConfigureAwait(false);
             }
             catch (Exception)
             {
-                nextManager?.Dispose();
+                next?.Dispose();
                 manager = null;
-                Publish(NowPlayingSnapshot.Empty);
+                Clear();
             }
         }
         finally { gate.Release(); }
@@ -146,90 +193,166 @@ internal sealed class NowPlayingService : INowPlayingService
         try
         {
             if (ShouldRun) return;
+            StopReconciliation();
             DetachSession();
             if (manager is not null)
             {
-                manager.CurrentSessionChanged -= Manager_CurrentSessionChanged;
+                manager.CurrentSessionChanged -= ManagerChanged;
                 manager.Dispose();
                 manager = null;
             }
-            Publish(NowPlayingSnapshot.Empty);
+            Clear();
         }
         finally { gate.Release(); }
     }
 
-    private void Manager_CurrentSessionChanged(object? sender, EventArgs args)
-    {
-        Publish(NowPlayingSnapshot.Empty);
-        _ = SwitchSessionAsync();
-    }
-    private void Session_MediaPropertiesChanged(object? sender, EventArgs args) => _ = RefreshAsync();
-    private void Session_PlaybackInfoChanged(object? sender, EventArgs args) => _ = RefreshAsync();
-    private void Session_TimelinePropertiesChanged(object? sender, EventArgs args) => _ = RefreshAsync();
+    private void ManagerChanged(object? sender, EventArgs e) => _ = SwitchAsync();
+    private void MediaChanged(object? sender, EventArgs e) => _ = RefreshAsync(NowPlayingRefreshCause.Media);
+    private void PlaybackChanged(object? sender, EventArgs e) => _ = RefreshAsync(NowPlayingRefreshCause.Playback);
+    private void TimelineChanged(object? sender, EventArgs e) => _ = RefreshAsync(NowPlayingRefreshCause.Timeline);
 
-    private async Task SwitchSessionAsync()
+    private async Task SwitchAsync()
     {
         await gate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (ShouldRun && manager is not null) await SwitchSessionCoreAsync().ConfigureAwait(false);
+            if (ShouldRun && manager is not null) await SwitchCoreAsync().ConfigureAwait(false);
         }
-        catch (Exception) { Publish(NowPlayingSnapshot.Empty); }
+        catch (Exception) { }
         finally { gate.Release(); }
     }
 
-    private async Task SwitchSessionCoreAsync()
+    private async Task SwitchCoreAsync()
     {
         var next = manager?.CurrentSession;
         if (ReferenceEquals(next, session))
         {
-            await RefreshCoreAsync().ConfigureAwait(false);
+            await RefreshCoreAsync(NowPlayingRefreshCause.Switch).ConfigureAwait(false);
             return;
         }
 
         DetachSession();
-        Publish(NowPlayingSnapshot.Empty);
         session = next;
-        if (session is null) return;
-        session.MediaPropertiesChanged += Session_MediaPropertiesChanged;
-        session.PlaybackInfoChanged += Session_PlaybackInfoChanged;
-        session.TimelinePropertiesChanged += Session_TimelinePropertiesChanged;
-        await RefreshCoreAsync().ConfigureAwait(false);
+        if (session is null)
+        {
+            StopReconciliation();
+            Clear();
+            return;
+        }
+
+        session.MediaPropertiesChanged += MediaChanged;
+        session.PlaybackInfoChanged += PlaybackChanged;
+        session.TimelinePropertiesChanged += TimelineChanged;
+        StartReconciliation();
+        await RefreshCoreAsync(NowPlayingRefreshCause.Switch).ConfigureAwait(false);
     }
 
-    private async Task RefreshAsync()
+    private void StartReconciliation()
+    {
+        StopReconciliation();
+        reconciliationTimer = new System.Threading.Timer(
+            _ => _ = RefreshAsync(NowPlayingRefreshCause.Reconciliation),
+            null,
+            reconciliationInterval,
+            reconciliationInterval);
+    }
+
+    private void StopReconciliation() => Interlocked.Exchange(ref reconciliationTimer, null)?.Dispose();
+
+    private async Task RefreshAsync(NowPlayingRefreshCause cause)
     {
         await gate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (ShouldRun && session is not null) await RefreshCoreAsync().ConfigureAwait(false);
+            if (ShouldRun && session is not null) await RefreshCoreAsync(cause).ConfigureAwait(false);
         }
-        catch (Exception) { Publish(NowPlayingSnapshot.Empty); }
+        catch (Exception)
+        {
+            // Transient GSMTC faults must not wipe the last known title or duration.
+        }
         finally { gate.Release(); }
     }
 
-    private async Task RefreshCoreAsync()
+    private async Task RefreshCoreAsync(NowPlayingRefreshCause cause)
     {
         var current = session;
-        if (current is null) { Publish(NowPlayingSnapshot.Empty); return; }
+        if (current is null)
+        {
+            Clear();
+            return;
+        }
+
         var data = await current.ReadAsync().ConfigureAwait(false);
         if (!ReferenceEquals(current, session) || !ShouldRun) return;
-        var end = data.End < TimeSpan.Zero ? TimeSpan.Zero : data.End;
-        var position = end > TimeSpan.Zero ? TimeSpan.FromTicks(Math.Clamp(data.Position.Ticks, 0, end.Ticks)) : TimeSpan.Zero;
+
+        var source = data.SourceApp?.Trim() ?? "";
+        var title = string.IsNullOrWhiteSpace(data.Title) ? "タイトル不明" : data.Title.Trim();
+        var artist = data.Artist?.Trim() ?? "";
+        var album = data.Album?.Trim() ?? "";
+        var identity = string.Join("\u001f", source, title, artist, album);
+        var now = DateTimeOffset.UtcNow;
+        var rawEnd = data.End > TimeSpan.Zero ? data.End : TimeSpan.Zero;
+        var rawPosition = data.Position < TimeSpan.Zero ? TimeSpan.Zero : data.Position;
+        var observed = data.TimelineObservedAt != default && data.TimelineObservedAt <= now ? data.TimelineObservedAt : now;
+        if (data.State == NowPlayingState.Playing && rawEnd > TimeSpan.Zero && observed < now)
+        {
+            rawPosition += now - observed;
+        }
+        rawPosition = NowPlayingTimelineMath.Clamp(rawPosition, rawEnd);
+
+        var different = !string.Equals(identity, mediaIdentity, StringComparison.Ordinal);
+        if (different)
+        {
+            if (mediaIdentity is not null) Clear();
+            mediaIdentity = identity;
+            lastKnownEnd = rawEnd;
+            lastKnownPosition = rawPosition;
+        }
+
+        var end = rawEnd > TimeSpan.Zero ? rawEnd : lastKnownEnd;
+        var projected = Project(snapshot, now).Position;
+        if (!different)
+        {
+            if (rawEnd > TimeSpan.Zero) lastKnownEnd = rawEnd;
+            if (rawEnd == TimeSpan.Zero && rawPosition == TimeSpan.Zero && lastKnownEnd > TimeSpan.Zero)
+            {
+                rawPosition = lastKnownPosition;
+            }
+            var seek = pendingSeek;
+            var acceptBackward = cause is NowPlayingRefreshCause.Timeline or NowPlayingRefreshCause.Seek
+                || seek.HasValue
+                || NowPlayingTimelineMath.IsLoopRewind(projected, rawPosition, end);
+            if (seek.HasValue)
+            {
+                rawPosition = NowPlayingTimelineMath.Clamp(seek.Value, end);
+                pendingSeek = null;
+            }
+            if (NowPlayingTimelineMath.ShouldKeepProjected(cause, snapshot.State, projected, rawPosition, end) && !acceptBackward)
+            {
+                rawPosition = projected;
+            }
+            lastKnownPosition = NowPlayingTimelineMath.Clamp(rawPosition, end);
+        }
+
+        var position = NowPlayingTimelineMath.Clamp(lastKnownPosition, end);
         Publish(new NowPlayingSnapshot(
-            true,
-            data.SourceApp?.Trim() ?? "",
-            string.IsNullOrWhiteSpace(data.Title) ? "タイトル不明" : data.Title.Trim(),
-            data.Artist?.Trim() ?? "",
-            data.Album?.Trim() ?? "",
-            data.Artwork,
-            data.State,
-            position,
-            end,
-            data.CanPrevious,
+            true, source, title, artist, album, data.Artwork, data.State, position, end,
+            data.CanPrevious || mediaCommands.IsAvailable,
             data.CanPlayPause,
-            data.CanNext,
-            data.CanSeek && end > TimeSpan.Zero));
+            data.CanNext || mediaCommands.IsAvailable,
+            data.CanSeek && end > TimeSpan.Zero,
+            now));
+    }
+
+    internal static NowPlayingSnapshot Project(NowPlayingSnapshot value, DateTimeOffset now)
+    {
+        if (!value.HasSession || value.State != NowPlayingState.Playing || value.End <= TimeSpan.Zero || value.ObservedAt == default)
+        {
+            return value;
+        }
+        var elapsed = now - value.ObservedAt;
+        if (elapsed <= TimeSpan.Zero) return value;
+        return value with { Position = NowPlayingTimelineMath.Clamp(value.Position + elapsed, value.End) };
     }
 
     public Task<bool> PreviousAsync() => InvokeAsync(NowPlayingCommand.Previous);
@@ -240,44 +363,60 @@ internal sealed class NowPlayingService : INowPlayingService
     private async Task<bool> InvokeAsync(NowPlayingCommand command, TimeSpan position = default)
     {
         var current = session;
-        var snapshot = Snapshot;
-        if (current is null || !ReferenceEquals(current, session) || !IsEnabled(snapshot, command)) return false;
-        if (command == NowPlayingCommand.Seek)
-        {
-            position = TimeSpan.FromTicks(Math.Clamp(position.Ticks, 0, snapshot.End.Ticks));
-        }
+        var value = Snapshot;
+        if (current is null || !ReferenceEquals(current, session) || !IsEnabled(value, command)) return false;
+        if (command == NowPlayingCommand.Seek) position = NowPlayingTimelineMath.Clamp(position, value.End);
         try
         {
             var succeeded = await current.TryCommandAsync(command, position).ConfigureAwait(false);
-            if (succeeded && ReferenceEquals(current, session)) _ = RefreshAsync();
-            return succeeded;
+            if (succeeded && ReferenceEquals(current, session))
+            {
+                if (command == NowPlayingCommand.Seek) pendingSeek = position;
+                _ = RefreshAsync(command == NowPlayingCommand.Seek ? NowPlayingRefreshCause.Seek : NowPlayingRefreshCause.Playback);
+                return true;
+            }
         }
-        catch (Exception) { return false; }
+        catch (Exception) { }
+
+        if (command is NowPlayingCommand.Previous or NowPlayingCommand.Next)
+        {
+            try { return mediaCommands.IsAvailable && mediaCommands.TrySend(command); }
+            catch (Exception) { return false; }
+        }
+        return false;
     }
 
-    private static bool IsEnabled(NowPlayingSnapshot snapshot, NowPlayingCommand command) => command switch
+    private static bool IsEnabled(NowPlayingSnapshot value, NowPlayingCommand command) => command switch
     {
-        NowPlayingCommand.Previous => snapshot.CanPrevious,
-        NowPlayingCommand.PlayPause => snapshot.CanPlayPause,
-        NowPlayingCommand.Next => snapshot.CanNext,
-        NowPlayingCommand.Seek => snapshot.CanSeek,
+        NowPlayingCommand.Previous => value.CanPrevious,
+        NowPlayingCommand.PlayPause => value.CanPlayPause,
+        NowPlayingCommand.Next => value.CanNext,
+        NowPlayingCommand.Seek => value.CanSeek && value.End > TimeSpan.Zero,
         _ => false
     };
 
     private void DetachSession()
     {
         if (session is null) return;
-        session.MediaPropertiesChanged -= Session_MediaPropertiesChanged;
-        session.PlaybackInfoChanged -= Session_PlaybackInfoChanged;
-        session.TimelinePropertiesChanged -= Session_TimelinePropertiesChanged;
+        session.MediaPropertiesChanged -= MediaChanged;
+        session.PlaybackInfoChanged -= PlaybackChanged;
+        session.TimelinePropertiesChanged -= TimelineChanged;
         session.Dispose();
         session = null;
     }
 
-    private void Publish(NowPlayingSnapshot snapshot)
+    private void Clear()
     {
-        Snapshot = snapshot;
-        SnapshotChanged?.Invoke(this, snapshot);
+        mediaIdentity = null;
+        pendingSeek = null;
+        lastKnownEnd = lastKnownPosition = TimeSpan.Zero;
+        Publish(NowPlayingSnapshot.Empty);
+    }
+
+    private void Publish(NowPlayingSnapshot value)
+    {
+        snapshot = value;
+        SnapshotChanged?.Invoke(this, Snapshot);
     }
 
     public void Dispose()
@@ -288,17 +427,21 @@ internal sealed class NowPlayingService : INowPlayingService
             disposed = true;
             consumers = 0;
         }
-        gate.Wait();
+        gate.Wait(TimeSpan.FromSeconds(2));
         try
         {
+            StopReconciliation();
             DetachSession();
             if (manager is not null)
             {
-                manager.CurrentSessionChanged -= Manager_CurrentSessionChanged;
+                manager.CurrentSessionChanged -= ManagerChanged;
                 manager.Dispose();
                 manager = null;
             }
-            Snapshot = NowPlayingSnapshot.Empty;
+            snapshot = NowPlayingSnapshot.Empty;
+            mediaIdentity = null;
+            pendingSeek = null;
+            lastKnownEnd = lastKnownPosition = TimeSpan.Zero;
         }
         finally { gate.Release(); }
     }
@@ -308,12 +451,39 @@ internal sealed class NowPlayingService : INowPlayingService
         private NowPlayingService? owner = owner;
         public void Dispose() => Interlocked.Exchange(ref owner, null)?.Release();
     }
-    private sealed class EmptyLease : IDisposable { internal static readonly EmptyLease Instance = new(); public void Dispose() { } }
+
+    private sealed class EmptyLease : IDisposable
+    {
+        internal static readonly EmptyLease Instance = new();
+        public void Dispose() { }
+    }
+}
+
+internal sealed class WindowsGlobalMediaCommandSender : IGlobalMediaCommandSender
+{
+    public bool IsAvailable => OperatingSystem.IsWindows();
+
+    public bool TrySend(NowPlayingCommand command)
+    {
+        var appCommand = command switch
+        {
+            NowPlayingCommand.Previous => 12,
+            NowPlayingCommand.Next => 11,
+            _ => 0
+        };
+        if (appCommand == 0) return false;
+        try { return PostMessage(new IntPtr(0xffff), 0x0319, IntPtr.Zero, new IntPtr(appCommand << 16)); }
+        catch (Exception) { return false; }
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 }
 
 internal sealed class GsmtcManagerProvider : INowPlayingManagerProvider
 {
-    public async Task<INowPlayingManager> RequestAsync() => new GsmtcManagerAdapter(await GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
+    public async Task<INowPlayingManager> RequestAsync() =>
+        new GsmtcManagerAdapter(await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().ConfigureAwait(false));
 }
 
 internal sealed class GsmtcManagerAdapter : INowPlayingManager
@@ -348,6 +518,10 @@ internal sealed class GsmtcManagerAdapter : INowPlayingManager
 internal sealed class GsmtcSessionAdapter : INowPlayingSession
 {
     private readonly GlobalSystemMediaTransportControlsSession session;
+    private string? title, artist, album;
+    private byte[]? artwork;
+    private int mediaDirty = 1;
+    private bool hasMedia;
 
     internal GsmtcSessionAdapter(GlobalSystemMediaTransportControlsSession session)
     {
@@ -360,35 +534,61 @@ internal sealed class GsmtcSessionAdapter : INowPlayingSession
     public event EventHandler? MediaPropertiesChanged;
     public event EventHandler? PlaybackInfoChanged;
     public event EventHandler? TimelinePropertiesChanged;
-    private void MediaChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args) => MediaPropertiesChanged?.Invoke(this, EventArgs.Empty);
-    private void PlaybackChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) => PlaybackInfoChanged?.Invoke(this, EventArgs.Empty);
-    private void TimelineChanged(GlobalSystemMediaTransportControlsSession sender, TimelinePropertiesChangedEventArgs args) => TimelinePropertiesChanged?.Invoke(this, EventArgs.Empty);
+
+    private void MediaChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args)
+    {
+        Interlocked.Exchange(ref mediaDirty, 1);
+        MediaPropertiesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void PlaybackChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args) =>
+        PlaybackInfoChanged?.Invoke(this, EventArgs.Empty);
+
+    private void TimelineChanged(GlobalSystemMediaTransportControlsSession sender, TimelinePropertiesChangedEventArgs args) =>
+        TimelinePropertiesChanged?.Invoke(this, EventArgs.Empty);
 
     public async Task<NowPlayingData> ReadAsync()
     {
-        var media = await session.TryGetMediaPropertiesAsync();
+        if (Interlocked.Exchange(ref mediaDirty, 0) != 0 || !hasMedia)
+        {
+            try
+            {
+                var media = await session.TryGetMediaPropertiesAsync().AsTask().ConfigureAwait(false);
+                byte[]? nextArtwork = null;
+                try
+                {
+                    if (media.Thumbnail is not null)
+                    {
+                        using var random = await media.Thumbnail.OpenReadAsync().AsTask().ConfigureAwait(false);
+                        using var input = random.AsStreamForRead();
+                        using var output = new MemoryStream();
+                        await input.CopyToAsync(output).ConfigureAwait(false);
+                        nextArtwork = output.ToArray();
+                    }
+                }
+                catch (Exception) { nextArtwork = artwork; }
+
+                title = media.Title;
+                artist = media.Artist;
+                album = media.AlbumTitle;
+                artwork = nextArtwork;
+                hasMedia = true;
+            }
+            catch (Exception)
+            {
+                Interlocked.Exchange(ref mediaDirty, 1);
+                if (!hasMedia) throw;
+            }
+        }
+
         var playback = session.GetPlaybackInfo();
         var timeline = session.GetTimelineProperties();
         var controls = playback.Controls;
-        byte[]? artwork = null;
-        try
-        {
-            if (media.Thumbnail is not null)
-            {
-                using var random = await media.Thumbnail.OpenReadAsync();
-                using var input = random.AsStreamForRead();
-                using var output = new MemoryStream();
-                await input.CopyToAsync(output).ConfigureAwait(false);
-                artwork = output.ToArray();
-            }
-        }
-        catch (Exception) { }
-
         return new NowPlayingData(
             session.SourceAppUserModelId,
-            media.Title,
-            media.Artist,
-            media.AlbumTitle,
+            title,
+            artist,
+            album,
             artwork,
             playback.PlaybackStatus switch
             {
@@ -402,15 +602,16 @@ internal sealed class GsmtcSessionAdapter : INowPlayingSession
             controls.IsPreviousEnabled,
             controls.IsPlayPauseToggleEnabled,
             controls.IsNextEnabled,
-            controls.IsPlaybackPositionEnabled);
+            controls.IsPlaybackPositionEnabled,
+            timeline.LastUpdatedTime);
     }
 
     public async Task<bool> TryCommandAsync(NowPlayingCommand command, TimeSpan position = default) => command switch
     {
-        NowPlayingCommand.Previous => await session.TrySkipPreviousAsync(),
-        NowPlayingCommand.PlayPause => await session.TryTogglePlayPauseAsync(),
-        NowPlayingCommand.Next => await session.TrySkipNextAsync(),
-        NowPlayingCommand.Seek => await session.TryChangePlaybackPositionAsync(position.Ticks),
+        NowPlayingCommand.Previous => await session.TrySkipPreviousAsync().AsTask().ConfigureAwait(false),
+        NowPlayingCommand.PlayPause => await session.TryTogglePlayPauseAsync().AsTask().ConfigureAwait(false),
+        NowPlayingCommand.Next => await session.TrySkipNextAsync().AsTask().ConfigureAwait(false),
+        NowPlayingCommand.Seek => await session.TryChangePlaybackPositionAsync(position.Ticks).AsTask().ConfigureAwait(false),
         _ => false
     };
 
@@ -419,5 +620,7 @@ internal sealed class GsmtcSessionAdapter : INowPlayingSession
         session.MediaPropertiesChanged -= MediaChanged;
         session.PlaybackInfoChanged -= PlaybackChanged;
         session.TimelinePropertiesChanged -= TimelineChanged;
+        artwork = null;
+        hasMedia = false;
     }
 }

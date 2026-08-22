@@ -269,8 +269,10 @@ internal sealed class ClockItemContent : IDesktopItemContent
 
     private void ApplyPalette()
     {
-        var palette = WidgetTheme.Resolve(item);
-        WidgetTheme.Apply(card, palette);
+        var isGlass = item.Clock.SurfaceStyle == WidgetSurfaceStyle.MinimalGlass;
+        var palette = isGlass ? MinimalGlassStyle.Palette : WidgetTheme.Resolve(item);
+        if (isGlass) MinimalGlassStyle.Apply(card);
+        else WidgetTheme.Apply(card, palette);
         var foreground = new SolidColorBrush(palette.Foreground);
         var muted = new SolidColorBrush(palette.Muted);
         var accent = new SolidColorBrush(palette.Accent);

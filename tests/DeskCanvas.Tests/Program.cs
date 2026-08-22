@@ -292,6 +292,7 @@ static void TestLiveOptionsRoundTrip()
     });
 }
 
+
 static void TestMetricMath()
 {
     var now = DateTimeOffset.UtcNow;

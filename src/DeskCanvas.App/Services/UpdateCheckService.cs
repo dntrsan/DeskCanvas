@@ -28,24 +28,44 @@ internal sealed class GitHubReleaseFeed(HttpClient client) : IReleaseFeed
 internal sealed class UpdateCheckService(IReleaseFeed feed, Version current)
 {
     private int announced;
+
     internal async Task<ReleaseInfo?> CheckOnceAsync(CancellationToken cancellationToken)
     {
-        try { var latest = await feed.GetLatestStableAsync(cancellationToken).ConfigureAwait(false); return latest is not null && SemanticVersion.TryParse(latest.Version, out var version) && version > current && Interlocked.Exchange(ref announced, 1) == 0 ? latest : null; }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return null; }
+        try
+        {
+            var latest = await feed.GetLatestStableAsync(cancellationToken).ConfigureAwait(false);
+            return latest is not null &&
+                   SemanticVersion.TryParse(latest.Version, out var version) &&
+                   version > current &&
+                   Interlocked.Exchange(ref announced, 1) == 0
+                ? latest
+                : null;
+        }
+        catch (OperationCanceledException) { return null; }
         catch (HttpRequestException) { return null; }
         catch (JsonException) { return null; }
+        catch (InvalidOperationException) { return null; }
     }
 }
 internal static class UpdateSafety
 {
-    internal static bool IsAllowedReleasePage(Uri uri) => uri.Scheme == Uri.UriSchemeHttps && uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) && uri.AbsolutePath.StartsWith("/dntrsan/DeskCanvas/releases", StringComparison.Ordinal);
+    internal static bool IsAllowedReleasePage(Uri uri) =>
+        uri.Scheme == Uri.UriSchemeHttps &&
+        uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) &&
+        (uri.AbsolutePath.Equals("/dntrsan/DeskCanvas/releases", StringComparison.Ordinal) ||
+         uri.AbsolutePath.StartsWith("/dntrsan/DeskCanvas/releases/", StringComparison.Ordinal));
 }
 internal static class SemanticVersion
 {
     internal static bool TryParse(string? text, out Version version)
     {
-        version = new Version(); if (string.IsNullOrWhiteSpace(text)) return false; var value = text.Trim(); if (value.StartsWith('v')) value = value[1..];
+        version = new Version();
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var value = text.Trim();
+        if (value.StartsWith('v')) value = value[1..];
         if (value.Contains('-', StringComparison.Ordinal) || value.Contains('+', StringComparison.Ordinal)) return false;
-        return Version.TryParse(value, out version) && version.Major >= 0 && version.Build >= 0;
+        if (!Version.TryParse(value, out var parsed) || parsed.Major < 0) return false;
+        version = new Version(parsed.Major, parsed.Minor, Math.Max(0, parsed.Build), Math.Max(0, parsed.Revision));
+        return true;
     }
 }
